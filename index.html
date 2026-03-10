@@ -1148,83 +1148,96 @@ ws.<span class="c-fn">send</span>({ <span class="c-str">"subscribe"</span>: [
 <div class="container">
   <div class="section-label reveal">トークン設計</div>
   <h2 class="reveal">$ARI <span class="gradient">トケノミクス</span></h2>
-  <p class="section-sub reveal">日本の金商法をクリアしつつ、全ステークホルダーが報われるユーティリティ＆ガバナンス特化型設計。総発行量10億枚固定。</p>
+  <p class="section-sub reveal">従来のDeFiトークノミクスの欠陥（高すぎるチーム配分、VCダンプ）を構造的に解消。<strong style="color: var(--accent);">Milestone-Earned Allocation (MEA)</strong> — チームはオンチェーン実績で初めてトークンを獲得。総発行量10億枚固定。</p>
 
   <!-- Allocation Donut -->
   <div class="reveal" style="display: flex; flex-wrap: wrap; gap: 32px; align-items: center; margin-bottom: 40px;">
     <div style="flex: 1; min-width: 280px;">
       <svg viewBox="0 0 200 200" style="max-width: 280px; margin: 0 auto; display: block;">
-        <!-- 45% Ecosystem: 0 to 162deg -->
+        <!-- circumference = 2 * PI * 80 = 502.65 -->
+        <!-- 55% Community: 0 to 198deg = 276.46 -->
         <circle cx="100" cy="100" r="80" fill="none" stroke="#06d6a0" stroke-width="28"
-          stroke-dasharray="226.2 276.5" stroke-dashoffset="0" transform="rotate(-90 100 100)" opacity="0.9"/>
-        <!-- 20% Treasury: 162 to 234deg -->
+          stroke-dasharray="276.46 226.19" stroke-dashoffset="0" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 20% Treasury: 198 to 270deg = 100.53 -->
         <circle cx="100" cy="100" r="80" fill="none" stroke="#818cf8" stroke-width="28"
-          stroke-dasharray="100.5 402.1" stroke-dashoffset="-226.2" transform="rotate(-90 100 100)" opacity="0.9"/>
-        <!-- 15% Team: 234 to 288deg -->
-        <circle cx="100" cy="100" r="80" fill="none" stroke="#f59e0b" stroke-width="28"
-          stroke-dasharray="75.4 427.3" stroke-dashoffset="-326.7" transform="rotate(-90 100 100)" opacity="0.9"/>
-        <!-- 15% VC: 288 to 342deg -->
-        <circle cx="100" cy="100" r="80" fill="none" stroke="#3b82f6" stroke-width="28"
-          stroke-dasharray="75.4 427.3" stroke-dashoffset="-402.1" transform="rotate(-90 100 100)" opacity="0.9"/>
-        <!-- 5% Public: 342 to 360deg -->
+          stroke-dasharray="100.53 402.12" stroke-dashoffset="-276.46" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 10% Public: 270 to 306deg = 50.27 -->
         <circle cx="100" cy="100" r="80" fill="none" stroke="#ef4444" stroke-width="28"
-          stroke-dasharray="25.1 477.5" stroke-dashoffset="-477.5" transform="rotate(-90 100 100)" opacity="0.9"/>
-        <text x="100" y="95" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="800">$ARI</text>
-        <text x="100" y="115" text-anchor="middle" fill="#8892a8" font-size="9">1,000,000,000</text>
+          stroke-dasharray="50.27 452.39" stroke-dashoffset="-376.99" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 8% Team: 306 to 334.8deg = 40.21 -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#f59e0b" stroke-width="28"
+          stroke-dasharray="40.21 462.44" stroke-dashoffset="-427.26" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 7% Early: 334.8 to 360deg = 35.19 -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#3b82f6" stroke-width="28"
+          stroke-dasharray="35.19 467.47" stroke-dashoffset="-467.47" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <text x="100" y="90" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="800">$ARI</text>
+        <text x="100" y="108" text-anchor="middle" fill="#8892a8" font-size="8">1,000,000,000</text>
+        <text x="100" y="120" text-anchor="middle" fill="#06d6a0" font-size="7" font-weight="600">55% Community</text>
       </svg>
     </div>
     <div style="flex: 1; min-width: 300px;">
       <table>
-        <thead><tr><th>配分</th><th>%</th><th>枚数</th><th>用途</th></tr></thead>
+        <thead><tr><th>配分</th><th>%</th><th>枚数</th><th>用途</th><th>解除条件</th></tr></thead>
         <tbody>
           <tr>
-            <td><span style="display: inline-block; width: 10px; height: 10px; background: #06d6a0; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">エコシステム</strong></td>
-            <td style="color: var(--accent); font-weight: 700;">45%</td>
-            <td>450M</td>
-            <td>ソルバー報酬、LP incentive、取引リベート、Airdrop</td>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #06d6a0; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">コミュニティ &amp; エコシステム</strong></td>
+            <td style="color: var(--accent); font-weight: 700;">55%</td>
+            <td>550M</td>
+            <td>ソルバー報酬、LP incentive、取引リベート、Airdrop、グラント</td>
+            <td>TVL・取引高マイルストーン連動</td>
           </tr>
           <tr>
-            <td><span style="display: inline-block; width: 10px; height: 10px; background: #818cf8; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">トレジャリー</strong></td>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #818cf8; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">プロトコルトレジャリー（DAO）</strong></td>
             <td style="color: var(--primary-light); font-weight: 700;">20%</td>
             <td>200M</td>
-            <td>チェーン拡張、監査、保険基金、ガバナンス決定</td>
+            <td>チェーン拡張、監査、保険基金</td>
+            <td>ガバナンス投票 + 7日タイムロック</td>
           </tr>
           <tr>
-            <td><span style="display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">チーム</strong></td>
-            <td style="color: var(--warning); font-weight: 700;">15%</td>
-            <td>150M</td>
-            <td>創業者 &amp; 初期開発メンバー</td>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #ef4444; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">パブリックセール</strong></td>
+            <td style="color: var(--danger); font-weight: 700;">10%</td>
+            <td>100M</td>
+            <td>フェアローンチ（VC優遇価格なし）</td>
+            <td>TGE時に全量流通</td>
           </tr>
           <tr>
-            <td><span style="display: inline-block; width: 10px; height: 10px; background: #3b82f6; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">投資家</strong></td>
-            <td style="color: #3b82f6; font-weight: 700;">15%</td>
-            <td>150M</td>
-            <td>シード / プライベートVC</td>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">チーム &amp; コントリビューター</strong></td>
+            <td style="color: var(--warning); font-weight: 700;">8%</td>
+            <td>80M</td>
+            <td>創業者 &amp; 開発メンバー</td>
+            <td style="color: var(--accent);"><strong>マイルストーン達成時のみ</strong></td>
           </tr>
           <tr>
-            <td><span style="display: inline-block; width: 10px; height: 10px; background: #ef4444; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">パブリック</strong></td>
-            <td style="color: var(--danger); font-weight: 700;">5%</td>
-            <td>50M</td>
-            <td>IEO / Launchpad</td>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #3b82f6; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">アーリーコントリビューター</strong></td>
+            <td style="color: #3b82f6; font-weight: 700;">7%</td>
+            <td>70M</td>
+            <td>初期開発者、バグ報告者、テスターへの報酬</td>
+            <td>6ヶ月cliff + 24ヶ月線形vesting</td>
           </tr>
         </tbody>
       </table>
+      <div style="margin-top: 16px; padding: 14px 18px; background: rgba(124,92,252,0.06); border: 1px solid rgba(124,92,252,0.15); border-radius: 10px; font-size: 0.85rem;">
+        <strong style="color: var(--accent);">革新ポイント:</strong> チーム配分は業界標準の15-20%を <strong>8%</strong> に削減し、さらにオンチェーンマイルストーン（TVL $10M/$100M/$500M、ユーザー数、ソルバー稼働率）達成時にのみ解除。5年以内に未達成分は<strong style="color: var(--danger);">永久バーン</strong>。VCラウンドを排除し、パブリックセールを10%に倍増。
+      </div>
     </div>
   </div>
 
   <!-- Vesting -->
-  <h3 class="reveal" style="margin-bottom: 16px;">Vestingスケジュール — 売り抜け防止</h3>
+  <h3 class="reveal" style="margin-bottom: 16px;">Milestone-Earned Vesting — チームは実績でのみ解除</h3>
   <p class="reveal" style="color: var(--text-dim); font-size: 0.88rem; margin-bottom: 20px;">
-    「上場直後に運営とVCが売り抜けて暴落」を構造的に不可能にする。チームは4年フルコミット。
+    チームトークンはスマートコントラクトにロックされ、オンチェーン条件を満たした時のみ解除。5年以内に未達成分は永久バーン。
   </p>
   <div class="reveal">
   <table>
-    <thead><tr><th>対象</th><th>Cliff</th><th>Vesting</th><th>合計拘束</th><th>解除条件</th></tr></thead>
+    <thead><tr><th>マイルストーン</th><th>解除量</th><th>検証方法</th></tr></thead>
     <tbody>
-      <tr><td style="color: var(--text);"><strong>チーム &amp; 創業者</strong></td><td>12ヶ月</td><td>36ヶ月（毎月線形）</td><td style="color: var(--warning); font-weight: 600;">4年</td><td>時間ベース</td></tr>
-      <tr><td style="color: var(--text);"><strong>VC投資家</strong></td><td>12ヶ月</td><td>24ヶ月（毎月線形）</td><td style="color: #3b82f6; font-weight: 600;">3年</td><td>時間ベース</td></tr>
-      <tr><td style="color: var(--text);"><strong>エコシステム</strong></td><td>なし</td><td>成長連動</td><td style="color: var(--accent); font-weight: 600;">動的</td><td>TVL・取引高マイルストーン連動（スマートコントラクト自動解放）</td></tr>
-      <tr><td style="color: var(--text);"><strong>パブリックセール</strong></td><td>なし</td><td>なし</td><td>即時</td><td>TGE時に全量流通</td></tr>
+      <tr><td style="color: var(--text);"><strong>TVL $10M達成</strong></td><td style="color: var(--accent); font-weight: 600;">10M (1%)</td><td>オンチェーンTVLオラクル</td></tr>
+      <tr><td style="color: var(--text);"><strong>ユニークトレーダー10,000人</strong></td><td style="color: var(--accent); font-weight: 600;">10M (1%)</td><td>Settlementコントラクトイベント数</td></tr>
+      <tr><td style="color: var(--text);"><strong>TVL $100M達成</strong></td><td style="color: var(--accent); font-weight: 600;">15M (1.5%)</td><td>オンチェーンTVLオラクル</td></tr>
+      <tr><td style="color: var(--text);"><strong>アクティブソルバー5社（充填率90%以上）</strong></td><td style="color: var(--accent); font-weight: 600;">10M (1%)</td><td>SolverRegistryステート</td></tr>
+      <tr><td style="color: var(--text);"><strong>クロスチェーン取引量 $50M超</strong></td><td style="color: var(--accent); font-weight: 600;">10M (1%)</td><td>CrossChainIntentイベント</td></tr>
+      <tr><td style="color: var(--text);"><strong>TVL $500M達成</strong></td><td style="color: var(--accent); font-weight: 600;">15M (1.5%)</td><td>オンチェーンTVLオラクル</td></tr>
+      <tr><td style="color: var(--text);"><strong>コミュニティによるガバナンス提案実行</strong></td><td style="color: var(--accent); font-weight: 600;">10M (1%)</td><td>VeARIガバナンスイベント</td></tr>
     </tbody>
   </table>
   </div>
