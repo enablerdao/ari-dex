@@ -1,0 +1,11 @@
+[package]
+name = "ari-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Matching engine for the ARI DEX (CLMM, OrderBook, Batch Auction)"
+
+[dependencies]
+ari-core = { path = "../ari-core" }
+serde.workspace = true

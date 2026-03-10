@@ -1,0 +1,11 @@
+[package]
+name = "ari-crypto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cryptographic primitives for the ARI DEX (threshold encryption, BLS)"
+
+[dependencies]
+ari-core = { path = "../ari-core" }
+serde.workspace = true
