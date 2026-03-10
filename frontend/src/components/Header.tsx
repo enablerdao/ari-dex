@@ -2,7 +2,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 
 export function Header() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
 
@@ -13,7 +13,7 @@ export function Header() {
     <header className="header">
       <div className="header-logo">
         <span className="header-logo-text">ARI</span>
-        <span className="header-logo-sub">Exchange</span>
+        <span className="header-logo-badge">Mainnet</span>
       </div>
 
       <nav className="header-nav">
@@ -21,14 +21,23 @@ export function Header() {
           Swap
         </a>
         <a className="header-nav-link" href="#">
-          Pool
+          Pools
         </a>
         <a className="header-nav-link" href="#">
-          History
+          Portfolio
+        </a>
+        <a className="header-nav-link" href="#">
+          Solvers
         </a>
       </nav>
 
-      <div className="header-wallet">
+      <div className="header-right">
+        {isConnected && chain && (
+          <div className="header-chain">
+            <span className="header-chain-dot" />
+            {chain.name}
+          </div>
+        )}
         {isConnected && address ? (
           <button
             className="header-wallet-btn header-wallet-btn--connected"

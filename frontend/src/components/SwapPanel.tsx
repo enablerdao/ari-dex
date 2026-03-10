@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useQuote } from "../hooks/useQuote";
 import { useSubmitIntent } from "../hooks/useSubmitIntent";
 import { useSignIntent } from "../hooks/useSignIntent";
 import type { Token } from "../types";
 import { ChainId } from "../types";
+import { API_URL } from "../config";
 
-/** Token list matching the API's hardcoded tokens. */
 const TOKENS: Token[] = [
   { chain: ChainId.Ethereum, address: "0x0000000000000000000000000000000000000000", symbol: "ETH", decimals: 18 },
   { chain: ChainId.Ethereum, address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", decimals: 6 },
@@ -15,6 +15,14 @@ const TOKENS: Token[] = [
   { chain: ChainId.Ethereum, address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", decimals: 8 },
 ];
 
+const TOKEN_ICONS: Record<string, string> = {
+  ETH: "\u039E",
+  USDC: "$",
+  USDT: "\u20AE",
+  DAI: "\u25C8",
+  WBTC: "\u20BF",
+};
+
 export function SwapPanel() {
   const { address, isConnected } = useAccount();
 
@@ -22,13 +30,32 @@ export function SwapPanel() {
   const [buyToken, setBuyToken] = useState<Token>(TOKENS[1]);
   const [sellAmount, setSellAmount] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [livePrice, setLivePrice] = useState<Record<string, number>>({});
 
-  const { data: quote, isLoading: quoteLoading } = useQuote(
-    sellToken,
-    buyToken,
-    sellAmount,
-  );
+  // Fetch live prices via WS
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    try {
+      const wsUrl = API_URL
+        ? API_URL.replace(/^http/, "ws") + "/ws"
+        : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        ws?.send(JSON.stringify({ subscribe: "prices" }));
+      };
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.pair && data.price) {
+            setLivePrice((prev) => ({ ...prev, [data.pair]: data.price }));
+          }
+        } catch { /* ignore */ }
+      };
+    } catch { /* ignore */ }
+    return () => ws?.close();
+  }, []);
 
+  const { data: quote, isLoading: quoteLoading } = useQuote(sellToken, buyToken, sellAmount);
   const { submit, isPending: submitPending } = useSubmitIntent();
   const { signIntent, isSigning } = useSignIntent();
 
@@ -61,7 +88,6 @@ export function SwapPanel() {
         deadline = result.deadline;
         nonce = result.nonce;
       } catch {
-        // User rejected signing or wallet error — abort
         return;
       }
     }
@@ -83,12 +109,26 @@ export function SwapPanel() {
     );
   }, [sellToken, buyToken, sellAmount, quote, submit, address, isConnected, signIntent, isSameToken]);
 
-  // Format buy amount from raw to human-readable
   const formatBuyAmount = () => {
     if (!quote) return "";
     const raw = parseFloat(quote.buy_amount);
     const decimals = buyToken.decimals;
-    return (raw / 10 ** decimals).toFixed(decimals > 8 ? 6 : 2);
+    return (raw / 10 ** decimals).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: decimals > 8 ? 6 : 2,
+    });
+  };
+
+  const formatUsdValue = () => {
+    if (!quote) return "";
+    const amt = parseFloat(sellAmount || "0");
+    if (sellToken.symbol === "ETH" && livePrice["ETH/USDC"]) {
+      return `$${(amt * livePrice["ETH/USDC"]).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+    }
+    if (sellToken.symbol === "USDC" || sellToken.symbol === "USDT" || sellToken.symbol === "DAI") {
+      return `$${amt.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+    }
+    return "";
   };
 
   const buttonLabel = isSameToken
@@ -109,17 +149,25 @@ export function SwapPanel() {
 
   return (
     <div className="swap-panel">
-      <h2 className="swap-panel-title">Swap</h2>
+      <div className="swap-panel-header">
+        <h2 className="swap-panel-title">Swap</h2>
+        <div className="swap-panel-settings">
+          <button className="swap-panel-setting-btn">0.5% slippage</button>
+        </div>
+      </div>
 
-      {/* Sell section */}
+      {/* Sell */}
       <div className="swap-panel-section">
-        <label className="swap-panel-label">Sell</label>
+        <div className="swap-panel-section-header">
+          <label className="swap-panel-label">You pay</label>
+          <span className="swap-panel-balance" />
+        </div>
         <div className="swap-panel-row">
           <input
             className="swap-panel-input"
             type="text"
             inputMode="decimal"
-            placeholder="0.0"
+            placeholder="0"
             value={sellAmount}
             onChange={(e) => {
               const val = e.target.value;
@@ -139,27 +187,32 @@ export function SwapPanel() {
           >
             {TOKENS.map((t) => (
               <option key={t.address} value={t.symbol}>
-                {t.symbol}
+                {TOKEN_ICONS[t.symbol] || ""} {t.symbol}
               </option>
             ))}
           </select>
         </div>
+        {sellAmount && (
+          <div className="swap-panel-usd">{formatUsdValue()}</div>
+        )}
       </div>
 
-      {/* Swap direction button */}
-      <button className="swap-panel-flip" onClick={handleSwapTokens}>
-        &darr;
+      {/* Flip */}
+      <button className="swap-panel-flip" onClick={handleSwapTokens} aria-label="Swap tokens">
+        &#8595;
       </button>
 
-      {/* Buy section */}
+      {/* Buy */}
       <div className="swap-panel-section">
-        <label className="swap-panel-label">Buy</label>
+        <div className="swap-panel-section-header">
+          <label className="swap-panel-label">You receive</label>
+        </div>
         <div className="swap-panel-row">
           <input
-            className="swap-panel-input"
+            className={`swap-panel-input ${quoteLoading ? "loading" : ""}`}
             type="text"
             inputMode="decimal"
-            placeholder="0.0"
+            placeholder="0"
             value={formatBuyAmount()}
             readOnly
           />
@@ -173,7 +226,7 @@ export function SwapPanel() {
           >
             {TOKENS.map((t) => (
               <option key={t.address} value={t.symbol}>
-                {t.symbol}
+                {TOKEN_ICONS[t.symbol] || ""} {t.symbol}
               </option>
             ))}
           </select>
@@ -191,36 +244,54 @@ export function SwapPanel() {
       {quote && !isSameToken && (
         <div className="swap-panel-details">
           <div className="swap-panel-detail-row">
-            <span>Price</span>
+            <span>Rate</span>
             <span>
-              1 {sellToken.symbol} = {parseFloat(quote.price).toFixed(2)}{" "}
+              1 {sellToken.symbol} = {parseFloat(quote.price).toLocaleString("en-US", { maximumFractionDigits: 2 })}{" "}
               {buyToken.symbol}
             </span>
           </div>
           <div className="swap-panel-detail-row">
             <span>Price Impact</span>
-            <span>{quote.price_impact}%</span>
+            <span style={{ color: parseFloat(quote.price_impact) > 1 ? "var(--red)" : "var(--green)" }}>
+              {quote.price_impact}%
+            </span>
           </div>
           <div className="swap-panel-detail-row">
             <span>Route</span>
-            <span>{quote.route.join(" -> ")}</span>
+            <span className="swap-panel-route">
+              {quote.route.map((token, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="swap-panel-route-arrow"> → </span>}
+                  <span className="swap-panel-route-token">{token}</span>
+                </span>
+              ))}
+            </span>
+          </div>
+          <div className="swap-panel-detail-row">
+            <span>Fee</span>
+            <span>0.05%</span>
+          </div>
+          <div className="swap-panel-detail-row">
+            <span>Settlement</span>
+            <span style={{ color: "var(--accent)" }}>Intent-based</span>
           </div>
         </div>
       )}
 
-      {/* Submit button */}
+      {/* Submit */}
       <button
-        className="swap-panel-submit"
+        className={`swap-panel-submit ${!isConnected && sellAmount ? "swap-panel-submit--connect" : ""}`}
         disabled={buttonDisabled}
         onClick={handleSubmit}
       >
         {buttonLabel}
       </button>
 
-      {/* Success message */}
+      {/* Success */}
       {submitted && (
         <div className="swap-panel-success">
-          Intent submitted! ID: {submitted.slice(0, 10)}...{submitted.slice(-6)}
+          <span>&#10003;</span>
+          Intent submitted: {submitted.slice(0, 10)}...{submitted.slice(-6)}
         </div>
       )}
     </div>
