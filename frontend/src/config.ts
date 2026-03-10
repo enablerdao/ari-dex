@@ -1,11 +1,7 @@
 import { ChainId } from "./types";
 
-/** Base URL for the ARI gateway API. */
-const rawUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-if (import.meta.env.PROD && !rawUrl.startsWith("https://")) {
-  console.error("API_URL must use HTTPS in production");
-}
-export const API_URL = rawUrl;
+/** Base URL for the ARI gateway API. Empty string = same origin (production). */
+export const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "" : "http://localhost:3000");
 
 /** Supported chains and their RPC endpoints. */
 export const SUPPORTED_CHAINS = [

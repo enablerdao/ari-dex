@@ -59,42 +59,45 @@ pub fn create_broadcast() -> broadcast::Sender<BroadcastEvent> {
     tx
 }
 
-/// Spawn the background price ticker that sends mock price updates.
+/// Spawn the background price ticker that fetches live prices every 10 seconds.
 pub fn spawn_price_ticker(tx: broadcast::Sender<BroadcastEvent>) {
     tokio::spawn(async move {
-        let mut eth_price: f64 = 3500.0;
-        let mut btc_price: f64 = 65000.0;
-
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-            // Small random walk using simple LCG to avoid non-Send ThreadRng
-            let seed = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .subsec_nanos();
-            let frac = (seed as f64) / (u32::MAX as f64); // 0.0..1.0
-            eth_price += (frac - 0.5) * 100.0;
-            btc_price += (frac - 0.5) * 1000.0;
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
 
-            let _ = tx.send(BroadcastEvent::Price(PriceUpdate {
-                channel: "prices",
-                pair: "ETH/USDC".to_string(),
-                price: (eth_price * 100.0).round() / 100.0,
-                timestamp: now,
-            }));
+            // Fetch live prices from CoinGecko
+            let url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,wrapped-bitcoin&vs_currencies=usd";
+            let prices = match reqwest::get(url).await {
+                Ok(resp) => resp
+                    .json::<std::collections::HashMap<String, std::collections::HashMap<String, f64>>>()
+                    .await
+                    .ok(),
+                Err(_) => None,
+            };
 
-            let _ = tx.send(BroadcastEvent::Price(PriceUpdate {
-                channel: "prices",
-                pair: "BTC/USDC".to_string(),
-                price: (btc_price * 100.0).round() / 100.0,
-                timestamp: now,
-            }));
+            if let Some(data) = prices {
+                if let Some(eth_usd) = data.get("ethereum").and_then(|m| m.get("usd")) {
+                    let _ = tx.send(BroadcastEvent::Price(PriceUpdate {
+                        channel: "prices",
+                        pair: "ETH/USDC".to_string(),
+                        price: (*eth_usd * 100.0).round() / 100.0,
+                        timestamp: now,
+                    }));
+                }
+                if let Some(btc_usd) = data.get("wrapped-bitcoin").and_then(|m| m.get("usd")) {
+                    let _ = tx.send(BroadcastEvent::Price(PriceUpdate {
+                        channel: "prices",
+                        pair: "BTC/USDC".to_string(),
+                        price: (*btc_usd * 100.0).round() / 100.0,
+                        timestamp: now,
+                    }));
+                }
+            }
         }
     });
 }
