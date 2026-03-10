@@ -19,4 +19,4 @@ rusqlite.workspace = true
 rand.workspace = true
 futures = "0.3"
 tower = { version = "0.4", features = ["limit"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
