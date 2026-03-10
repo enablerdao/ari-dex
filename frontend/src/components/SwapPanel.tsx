@@ -103,9 +103,9 @@ export function SwapPanel() {
             ? "Submitting Intent..."
             : isConnected
               ? "Sign & Swap"
-              : "Swap (Demo Mode)";
+              : "Connect Wallet to Swap";
 
-  const buttonDisabled = !sellAmount || quoteLoading || submitPending || isSigning || isSameToken;
+  const buttonDisabled = !sellAmount || quoteLoading || submitPending || isSigning || isSameToken || !isConnected;
 
   return (
     <div className="swap-panel">
