@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARI — 世界最高の分散型取引所 仕様書</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --accent: #06d6a0;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .hero {
+    text-align: center;
+    padding: 80px 20px 60px;
+    background: linear-gradient(180deg, #0f0f1a 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 50% 50%, rgba(99,102,241,0.08) 0%, transparent 50%);
+    animation: pulse 8s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+  }
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary-light), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+  }
+  .hero p { color: var(--text-dim); font-size: 1.2rem; margin-top: 12px; position: relative; }
+  .badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 16px;
+    position: relative;
+  }
+  .badge-primary { background: rgba(99,102,241,0.15); color: var(--primary-light); border: 1px solid rgba(99,102,241,0.3); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+  }
+  nav .container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  nav a:hover { background: var(--surface); color: var(--text); }
+
+  section { padding: 60px 0; border-bottom: 1px solid var(--border); }
+  section:last-child { border-bottom: none; }
+  h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  h2 span { color: var(--primary-light); }
+  h3 { font-size: 1.2rem; margin: 24px 0 12px; color: var(--text); }
+  .section-sub { color: var(--text-dim); margin-bottom: 32px; font-size: 0.95rem; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .card-icon { font-size: 2rem; margin-bottom: 12px; }
+  .card h4 { font-size: 1.1rem; margin-bottom: 8px; }
+  .card p { color: var(--text-dim); font-size: 0.9rem; }
+
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    overflow-x: auto;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .arch-diagram .layer {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 8px 0;
+    position: relative;
+  }
+  .arch-diagram .layer-name {
+    font-weight: 700;
+    color: var(--primary-light);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  .arch-diagram .layer-desc { color: var(--text-dim); font-size: 0.82rem; }
+  .arch-diagram .arrow { text-align: center; color: var(--accent); font-size: 1.2rem; margin: 4px 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.9rem;
+  }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    color: var(--primary-light);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  tr:hover td { background: rgba(99,102,241,0.03); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .tag-rust { background: rgba(222,100,50,0.15); color: #de6432; }
+  .tag-sol { background: rgba(99,102,241,0.15); color: var(--primary-light); }
+  .tag-ts { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .tag-zk { background: rgba(6,214,160,0.15); color: var(--accent); }
+  .tag-p0 { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .tag-p1 { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .tag-p2 { background: rgba(99,102,241,0.15); color: var(--primary-light); }
+
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .flow-num {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #fff;
+  }
+  .flow-content h4 { font-size: 1rem; margin-bottom: 4px; }
+  .flow-content p { color: var(--text-dim); font-size: 0.88rem; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary-light), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .metric-label { color: var(--text-dim); font-size: 0.8rem; margin-top: 4px; }
+
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--primary), var(--accent));
+  }
+  .timeline-item { position: relative; margin: 24px 0; }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+  .timeline-item h4 { font-size: 0.95rem; }
+  .timeline-item .period { color: var(--accent); font-size: 0.8rem; font-weight: 600; }
+  .timeline-item p { color: var(--text-dim); font-size: 0.88rem; margin-top: 4px; }
+
+  .code-block {
+    background: #0d0d14;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    overflow-x: auto;
+    line-height: 1.6;
+    margin: 16px 0;
+  }
+  .code-comment { color: #4a5568; }
+  .code-keyword { color: var(--primary-light); }
+  .code-string { color: var(--accent); }
+  .code-type { color: #f59e0b; }
+  .code-fn { color: #3b82f6; }
+
+  .budget-bar {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 32px;
+    margin: 20px 0;
+  }
+  .budget-bar div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    padding: 0 8px;
+  }
+
+  .compare-table td:first-child { font-weight: 600; color: var(--text); }
+  .compare-good { color: var(--accent) !important; }
+  .compare-bad { color: var(--danger) !important; }
+
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2rem; }
+    .card-grid { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    nav a { font-size: 0.75rem; padding: 4px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>ARI</h1>
+  <p>Intent-Based DEX with MEV Protection — by Ariyasu &amp; Hamada</p>
+  <div class="badge badge-primary">ARI v0.1 — 2026.03</div>
+</div>
+
+<nav>
+  <div class="container">
+    <a href="#why">Why This Works</a>
+    <a href="#vision">Vision</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#modules">Modules</a>
+    <a href="#intent">Intent Engine</a>
+    <a href="#mev">MEV Protection</a>
+    <a href="#contracts">Contracts</a>
+    <a href="#api">API</a>
+    <a href="#security">Security</a>
+    <a href="#compare">Comparison</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#budget">Budget</a>
+  </div>
+</nav>
+
+<!-- ===== WHY THIS WORKS ===== -->
+<section id="why" style="padding: 80px 0;">
+<div class="container">
+  <h2 style="text-align: center; font-size: 2.2rem; margin-bottom: 12px;">Why This <span>Works</span></h2>
+  <p class="section-sub" style="text-align: center; max-width: 700px; margin: 0 auto 48px;">なぜこのDEXは成功するのか。既存プレイヤーが解決できていない3つの構造的問題に、正しいタイミングで正しい解を提示する。</p>
+
+  <!-- Thesis -->
+  <div style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,214,160,0.08)); border: 1px solid var(--border); border-radius: 20px; padding: 36px; margin-bottom: 40px;">
+    <h3 style="color: var(--primary-light); margin: 0 0 16px; font-size: 1.3rem;">Core Thesis</h3>
+    <p style="font-size: 1.05rem; line-height: 1.8;">
+      DeFiの取引量は年間$1T超。しかし<strong style="color: var(--danger);">年間$10B以上がMEVとして搾取</strong>され、UXの悪さからユーザーの90%以上がCEXに留まっている。
+      この2つの問題は同じ根本原因 — <strong>「注文の順序依存性」と「チェーンの分断」</strong> — から発生している。
+      インテントベース + 暗号化バッチオークションはこれを構造的に解決する唯一のアーキテクチャであり、今まさにインフラ（ZK証明、AA、クロスチェーン）が実用段階に達した。
+    </p>
+  </div>
+
+  <!-- 3 Reasons -->
+  <div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">
+
+    <div class="card" style="border-top: 3px solid var(--danger); border-radius: 16px;">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--danger); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Reason 1</div>
+      <h4 style="font-size: 1.15rem; margin-bottom: 12px;">既存DEXのMEV問題は設計レベルで壊れている</h4>
+      <p>Uniswapは注文が公開メモリプールを通過する。この設計ではフロントランニングは原理的に防げない。Hookやプライベートメモリプールは「パッチ」であり根本解決ではない。</p>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(239,68,68,0.06); border-radius: 8px; font-size: 0.85rem;">
+        <strong style="color: var(--text);">我々の解:</strong><br>
+        <span style="color: var(--text-dim);">閾値暗号で注文を秘匿 → バッチ確定まで誰も中身を見れない → フロントランニングが物理的に不可能。パッチではなくアーキテクチャで解決。</span>
+      </div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid var(--warning); border-radius: 16px;">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Reason 2</div>
+      <h4 style="font-size: 1.15rem; margin-bottom: 12px;">流動性の分断が「勝者総取り」の機会を生む</h4>
+      <p>Ethereum、Solana、L2 — 流動性は20以上のチェーンに分散。ユーザーは手動でブリッジし、チェーンごとに別のDEXを使う。統一された体験を提供するプレイヤーはまだいない。</p>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(245,158,11,0.06); border-radius: 8px; font-size: 0.85rem;">
+        <strong style="color: var(--text);">我々の解:</strong><br>
+        <span style="color: var(--text-dim);">インテントレイヤーがチェーンを抽象化。ユーザーは「ETHをUSDCに」と言うだけ。ソルバーが全チェーンの流動性から最適ルートを発見。チェーンを意識させない。</span>
+      </div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid var(--accent); border-radius: 16px;">
+      <div style="font-size: 0.8rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">Reason 3</div>
+      <h4 style="font-size: 1.15rem; margin-bottom: 12px;">AIが開発コストの常識を破壊する</h4>
+      <p>従来、このレベルのプロトコルには50名以上のエンジニアと$30M以上の開発費が必要だった。AI（Claude/Cursor）の活用で、15名のチームが同等以上の品質を半分の期間で実現できる。</p>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(6,214,160,0.06); border-radius: 8px; font-size: 0.85rem;">
+        <strong style="color: var(--text);">我々の解:</strong><br>
+        <span style="color: var(--text-dim);">AI駆動開発で89,000 LOCを6ヶ月で実装。浮いた$12Mを流動性とセキュリティに全額投入。資金効率で既存チームを圧倒する。</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Timing -->
+  <div style="margin-top: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px;">
+    <h3 style="margin: 0 0 20px; font-size: 1.15rem;">Why <span style="color: var(--accent);">Now</span> — タイミングが全て</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+      <div>
+        <div style="color: var(--primary-light); font-weight: 700; font-size: 0.85rem; margin-bottom: 6px;">ZK証明の成熟</div>
+        <p style="font-size: 0.88rem; color: var(--text-dim);">SP1/Plonky3の登場で証明生成が実用速度に。2年前は不可能だったZK-Rollup DEXが今は現実的。</p>
+      </div>
+      <div>
+        <div style="color: var(--primary-light); font-weight: 700; font-size: 0.85rem; margin-bottom: 6px;">アカウント抽象化の標準化</div>
+        <p style="font-size: 0.88rem; color: var(--text-dim);">ERC-4337が普及し、ガスレス取引・ソーシャルリカバリが標準機能に。Web2級UXの土台が整った。</p>
+      </div>
+      <div>
+        <div style="color: var(--primary-light); font-weight: 700; font-size: 0.85rem; margin-bottom: 6px;">インテントの市場検証</div>
+        <p style="font-size: 0.88rem; color: var(--text-dim);">UniswapX、1inch Fusion、CoW Protocolがインテントモデルの有効性を証明済み。市場は次の進化を待っている。</p>
+      </div>
+      <div>
+        <div style="color: var(--primary-light); font-weight: 700; font-size: 0.85rem; margin-bottom: 6px;">規制の明確化</div>
+        <p style="font-size: 0.88rem; color: var(--text-dim);">米国・EUでDeFi規制フレームワークが形成中。コンプライアンス対応した新規参入者に有利な環境。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Moat -->
+  <div style="margin-top: 40px;">
+    <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Defensibility — なぜ後発に追い抜かれないか</h3>
+    <table>
+      <thead>
+        <tr><th>Moat</th><th>詳細</th><th>構築期間</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ソルバーネットワーク効果</strong></td>
+          <td>ソルバーが増えるほど価格が改善 → ユーザーが増える → ソルバーがさらに参入。正のフライホイール。</td>
+          <td>12-18ヶ月</td>
+        </tr>
+        <tr>
+          <td><strong>流動性の粘着性</strong></td>
+          <td>LPはポジション管理の手間から移動しにくい。特に集中流動性ポジションは移行コストが高い。</td>
+          <td>6-12ヶ月</td>
+        </tr>
+        <tr>
+          <td><strong>統合エコシステム</strong></td>
+          <td>SDK/Widget経由で他dAppに組み込まれると、スイッチングコストが発生。アグリゲーターのデフォルトルートになる。</td>
+          <td>12-18ヶ月</td>
+        </tr>
+        <tr>
+          <td><strong>ZK証明の技術蓄積</strong></td>
+          <td>カスタム回路の最適化ノウハウは公開コードだけでは複製困難。6ヶ月以上のR&Dアドバンテージ。</td>
+          <td>6-12ヶ月</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</section>
+
+<!-- ===== VISION ===== -->
+<section id="vision">
+<div class="container">
+  <h2><span>#1</span> Vision &amp; Goals</h2>
+  <p class="section-sub">既存DEXの限界を超え、CEXと同等のUXで最良執行を実現する</p>
+
+  <div class="metric-grid">
+    <div class="metric">
+      <div class="metric-value">&lt; 1ms</div>
+      <div class="metric-label">マッチングレイテンシ</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">10,000+</div>
+      <div class="metric-label">TPS（AppChain）</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">&lt; $0.001</div>
+      <div class="metric-label">取引コスト</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">80%</div>
+      <div class="metric-label">MEVリベート率</div>
+    </div>
+  </div>
+
+  <div class="card-grid" style="margin-top: 32px;">
+    <div class="card">
+      <div class="card-icon">&#9889;</div>
+      <h4>最良執行の保証</h4>
+      <p>インテントベースのソルバーネットワークが、CEX/DEX全流動性から最適価格を発見。ユーザーは常にベストプライスを得る。</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128737;</div>
+      <h4>MEVからの完全保護</h4>
+      <p>暗号化メモリプール + バッチオークションで、フロントランニング・サンドイッチ攻撃を構造的に不可能にする。</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#127760;</div>
+      <h4>チェーン抽象化</h4>
+      <p>Ethereum, Solana, Arbitrum, Base — ユーザーはチェーンを意識せず取引。インテントレイヤーが全てを吸収。</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128100;</div>
+      <h4>Web2級UX</h4>
+      <p>ガスレス取引、アカウント抽象化、法定通貨オンランプ。ウォレット接続→スワップが3秒以内。</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== ARCHITECTURE ===== -->
+<section id="architecture">
+<div class="container">
+  <h2><span>#2</span> System Architecture</h2>
+  <p class="section-sub">5層構造でスケーラビリティ・セキュリティ・UXを両立</p>
+
+  <div class="arch-diagram">
+    <div class="layer" style="border-color: #3b82f6;">
+      <div class="layer-name">Layer 5: Frontend &amp; SDK</div>
+      <div class="layer-desc">React SPA / Mobile WebView / TypeScript SDK / Widget for dApps</div>
+    </div>
+    <div class="arrow">&#8595;</div>
+    <div class="layer" style="border-color: var(--primary-light);">
+      <div class="layer-name">Layer 4: Intent Gateway (API)</div>
+      <div class="layer-desc">REST + WebSocket + GraphQL — ユーザーのインテント受付、認証、レート制限</div>
+    </div>
+    <div class="arrow">&#8595;</div>
+    <div class="layer" style="border-color: var(--accent);">
+      <div class="layer-name">Layer 3: Solver Network</div>
+      <div class="layer-desc">分散ソルバーがオフチェーンで競争入札 → 最良執行ルートを提出 → オンチェーン検証</div>
+    </div>
+    <div class="arrow">&#8595;</div>
+    <div class="layer" style="border-color: #f59e0b;">
+      <div class="layer-name">Layer 2: Execution Engine (AppChain)</div>
+      <div class="layer-desc">Rust製マッチングエンジン / CLMM + OrderBook ハイブリッド / バッチオークション</div>
+    </div>
+    <div class="arrow">&#8595;</div>
+    <div class="layer" style="border-color: var(--danger);">
+      <div class="layer-name">Layer 1: Settlement</div>
+      <div class="layer-desc">ZK-Rollup → Ethereum L1 / Solana / 各チェーンにネイティブセトルメント</div>
+    </div>
+  </div>
+
+  <h3>データフロー概要</h3>
+  <div class="code-block">
+<span class="code-comment">// 1. ユーザーがインテントを送信</span>
+<span class="code-type">Intent</span> { sell: <span class="code-string">"1 ETH"</span>, buy: <span class="code-string">"USDC"</span>, max_slippage: <span class="code-string">"0.5%"</span>, deadline: <span class="code-string">"30s"</span> }
+
+<span class="code-comment">// 2. Intent Gateway が暗号化してソルバーネットワークに配信</span>
+<span class="code-fn">gateway.broadcast</span>(<span class="code-fn">encrypt</span>(intent, <span class="code-type">threshold_key</span>))
+
+<span class="code-comment">// 3. ソルバーが競争入札（CEX流動性含む）</span>
+<span class="code-type">Solution</span> { route: [Uniswap_v3 → Curve], price: <span class="code-string">"3,421.50 USDC"</span>, gas: <span class="code-string">"0.001 ETH"</span> }
+<span class="code-type">Solution</span> { route: [Binance_OTC],        price: <span class="code-string">"3,422.10 USDC"</span>, gas: <span class="code-string">"0"</span> }
+
+<span class="code-comment">// 4. 最良ソリューションを選択 → オンチェーン実行</span>
+<span class="code-fn">engine.execute</span>(best_solution, <span class="code-type">zk_proof</span>)
+
+<span class="code-comment">// 5. ZK証明を生成 → L1セトルメント</span>
+<span class="code-fn">rollup.submit_proof</span>(batch_proof, <span class="code-type">state_root</span>)
+  </div>
+</div>
+</section>
+
+<!-- ===== MODULES ===== -->
+<section id="modules">
+<div class="container">
+  <h2><span>#3</span> Core Modules</h2>
+  <p class="section-sub">AIが実装する主要コンポーネント一覧</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Module</th>
+        <th>言語</th>
+        <th>責務</th>
+        <th>優先度</th>
+        <th>推定規模</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>matching-engine</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>CLMM + OrderBook ハイブリッドマッチング、バッチオークション</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~15,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>intent-gateway</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>Intent受付、暗号化、ソルバーへのブロードキャスト、API</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~8,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>solver-sdk</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>ソルバー開発キット、ルーティング最適化、MEV計算</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~10,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>smart-contracts</strong></td>
+        <td><span class="tag tag-sol">Solidity</span></td>
+        <td>Settlement、Vault、Router、Permit2統合</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~5,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>zk-prover</strong></td>
+        <td><span class="tag tag-rust">Rust</span> <span class="tag tag-zk">ZK</span></td>
+        <td>取引バッチのZK証明生成、L1セトルメント</td>
+        <td><span class="tag tag-p1">P1</span></td>
+        <td>~12,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>bridge-adapter</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>クロスチェーンメッセージング、資産ブリッジ抽象化</td>
+        <td><span class="tag tag-p1">P1</span></td>
+        <td>~6,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>indexer</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>オンチェーンイベント取得、価格/流動性インデックス</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~5,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>frontend</strong></td>
+        <td><span class="tag tag-ts">TypeScript</span></td>
+        <td>React SPA、ウォレット統合、チャート、ポートフォリオ</td>
+        <td><span class="tag tag-p0">P0</span></td>
+        <td>~20,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>sdk-ts</strong></td>
+        <td><span class="tag tag-ts">TypeScript</span></td>
+        <td>開発者向けSDK、Widget、React Hooks</td>
+        <td><span class="tag tag-p1">P1</span></td>
+        <td>~4,000 LOC</td>
+      </tr>
+      <tr>
+        <td><strong>oracle</strong></td>
+        <td><span class="tag tag-rust">Rust</span></td>
+        <td>価格フィード集約、TWAP/VWAP計算、異常検知</td>
+        <td><span class="tag tag-p1">P1</span></td>
+        <td>~4,000 LOC</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="color: var(--text-dim); font-size: 0.85rem; margin-top: 8px;">
+    合計推定: ~89,000 LOC / Rust 70% : Solidity 6% : TypeScript 24%
+  </p>
+</div>
+</section>
+
+<!-- ===== INTENT ENGINE ===== -->
+<section id="intent">
+<div class="container">
+  <h2><span>#4</span> Intent Engine</h2>
+  <p class="section-sub">ユーザーは「意図」だけ伝える。最適な実行はプロトコルが保証する。</p>
+
+  <div class="flow-step">
+    <div class="flow-num">1</div>
+    <div class="flow-content">
+      <h4>Intent Submission</h4>
+      <p>ユーザーが「1 ETHを最良価格でUSDCに交換」というインテントを署名して送信。EIP-712準拠の型付きデータ。</p>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-num">2</div>
+    <div class="flow-content">
+      <h4>Threshold Encryption</h4>
+      <p>インテントは閾値暗号で暗号化。バッチ確定まで誰も内容を閲覧できない → フロントランニング不可能。</p>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-num">3</div>
+    <div class="flow-content">
+      <h4>Solver Auction (Dutch)</h4>
+      <p>ソルバーが「ブラインド入札」で最良執行ルートを競争。CEX流動性、プライベートマーケットメーカーも参加可能。</p>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-num">4</div>
+    <div class="flow-content">
+      <h4>Batch Decryption &amp; Matching</h4>
+      <p>バッチ期間（~250ms）終了後に一括復号。同一価格で約定（バッチオークション）。MEVは構造的に排除。</p>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-num">5</div>
+    <div class="flow-content">
+      <h4>On-chain Settlement</h4>
+      <p>約定結果をZK証明付きでオンチェーン確定。ユーザーのウォレットにトークンが直接到着。</p>
+    </div>
+  </div>
+
+  <h3>Intent Schema</h3>
+  <div class="code-block">
+<span class="code-keyword">struct</span> <span class="code-type">Intent</span> {
+    <span class="code-comment">// 基本フィールド</span>
+    sender:        <span class="code-type">Address</span>,           <span class="code-comment">// ユーザーのウォレットアドレス</span>
+    sell_token:    <span class="code-type">Token</span>,             <span class="code-comment">// 売却トークン (e.g., WETH)</span>
+    sell_amount:   <span class="code-type">U256</span>,              <span class="code-comment">// 売却数量 (wei)</span>
+    buy_token:     <span class="code-type">Token</span>,             <span class="code-comment">// 購入トークン (e.g., USDC)</span>
+    min_buy:       <span class="code-type">U256</span>,              <span class="code-comment">// 最低購入量 (スリッページ保護)</span>
+
+    <span class="code-comment">// 制約</span>
+    deadline:      <span class="code-type">u64</span>,               <span class="code-comment">// UNIX timestamp 期限</span>
+    src_chain:     <span class="code-type">ChainId</span>,           <span class="code-comment">// ソースチェーン</span>
+    dst_chain:     <span class="code-type">Option&lt;ChainId&gt;</span>,    <span class="code-comment">// 宛先チェーン (クロスチェーン時)</span>
+    partial_fill:  <span class="code-type">bool</span>,              <span class="code-comment">// 部分約定許可</span>
+
+    <span class="code-comment">// 署名</span>
+    nonce:         <span class="code-type">U256</span>,
+    signature:     <span class="code-type">Signature</span>,          <span class="code-comment">// EIP-712 typed data signature</span>
+}
+  </div>
+</div>
+</section>
+
+<!-- ===== MEV PROTECTION ===== -->
+<section id="mev">
+<div class="container">
+  <h2><span>#5</span> MEV Protection</h2>
+  <p class="section-sub">年間$10B以上が搾取されるMEV問題を構造的に解決</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>&#128274; 暗号化メモリプール</h4>
+      <p>閾値暗号（t-of-n）で注文内容を秘匿。バリデータの2/3が復号に参加しない限り、注文内容は不明。サーチャーは何も見えない。</p>
+      <div class="code-block" style="margin-top: 12px;">
+<span class="code-comment">// Threshold BLS encryption</span>
+<span class="code-keyword">let</span> encrypted = <span class="code-fn">tlock::encrypt</span>(
+    &amp;intent_bytes,
+    &amp;committee_public_key,
+    round_number + <span class="code-string">1</span>,  <span class="code-comment">// 次のバッチで復号</span>
+);
+      </div>
+    </div>
+    <div class="card">
+      <h4>&#9878; バッチオークション</h4>
+      <p>250msバッチ内の全注文を同一価格で約定。注文の順序に意味がない → 先行者利益ゼロ。MEVの根本原因（順序依存性）を除去。</p>
+      <div class="code-block" style="margin-top: 12px;">
+<span class="code-comment">// Batch auction flow</span>
+<span class="code-comment">// t=0ms:   バッチ開始、インテント受付</span>
+<span class="code-comment">// t=250ms: バッチ締切、一括復号</span>
+<span class="code-comment">// t=260ms: 均一価格計算 (CDA → UCP)</span>
+<span class="code-comment">// t=270ms: 全注文を同一価格で約定</span>
+      </div>
+    </div>
+    <div class="card">
+      <h4>&#128176; MEVリベート</h4>
+      <p>それでも発生する残余MEV（統計的アービトラージ等）は80%をユーザーに還元。残り20%はプロトコル収益。</p>
+      <table style="margin-top: 12px; font-size: 0.82rem;">
+        <tr><td>フロントランニング</td><td style="color: var(--accent);">構造的に不可能</td></tr>
+        <tr><td>サンドイッチ攻撃</td><td style="color: var(--accent);">構造的に不可能</td></tr>
+        <tr><td>JIT Liquidity</td><td style="color: var(--accent);">バッチで無効化</td></tr>
+        <tr><td>統計的アービトラージ</td><td style="color: var(--warning);">80%リベート</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== SMART CONTRACTS ===== -->
+<section id="contracts">
+<div class="container">
+  <h2><span>#6</span> Smart Contracts</h2>
+  <p class="section-sub">最小限のオンチェーンロジック、最大限の検証可能性</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>Settlement.sol</h4>
+      <p>原子的スワップ実行。ソルバーのソリューションを検証し、トークンを移動。Permit2統合でapprove不要。</p>
+      <div class="code-block" style="margin-top: 12px; font-size: 0.78rem;">
+<span class="code-keyword">function</span> <span class="code-fn">settle</span>(
+    <span class="code-type">Intent[]</span> intents,
+    <span class="code-type">Solution</span> solution,
+    <span class="code-type">bytes</span> proof
+) <span class="code-keyword">external</span> {
+    <span class="code-fn">require</span>(verifier.<span class="code-fn">verify</span>(proof));
+    <span class="code-keyword">for</span> (intent <span class="code-keyword">in</span> intents) {
+        permit2.<span class="code-fn">transferFrom</span>(...);
+    }
+}
+      </div>
+    </div>
+    <div class="card">
+      <h4>Vault.sol</h4>
+      <p>流動性プール管理。集中流動性ポジション（Uniswap V3互換tick範囲）。LPトークンはERC-721（NFT）。</p>
+    </div>
+    <div class="card">
+      <h4>Governance.sol</h4>
+      <p>veTokenモデル。ロック期間に応じて投票力が増加。手数料分配、パラメータ変更、緊急停止の権限。</p>
+    </div>
+    <div class="card">
+      <h4>BridgeReceiver.sol</h4>
+      <p>クロスチェーンメッセージの受信・検証。LayerZero / Hyperlane / Wormhole マルチブリッジ対応。</p>
+    </div>
+  </div>
+
+  <h3>コントラクトアドレス設計</h3>
+  <table>
+    <thead>
+      <tr><th>Contract</th><th>パターン</th><th>Upgradeable</th><th>備考</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Settlement</td><td>Singleton</td><td>UUPS Proxy</td><td>Timelock 48h</td></tr>
+      <tr><td>Vault</td><td>Factory → Clone</td><td>No (immutable)</td><td>ペアごとに生成</td></tr>
+      <tr><td>Governance</td><td>Singleton</td><td>UUPS Proxy</td><td>Timelock 7d</td></tr>
+      <tr><td>BridgeReceiver</td><td>Per-chain</td><td>UUPS Proxy</td><td>Timelock 48h</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- ===== API ===== -->
+<section id="api">
+<div class="container">
+  <h2><span>#7</span> API Specification</h2>
+  <p class="section-sub">REST + WebSocket + GraphQL の3チャネル</p>
+
+  <h3>REST API</h3>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>説明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="color: var(--accent);">POST</td><td>/v1/intents</td><td>新規インテント送信</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/intents/{id}</td><td>インテント状態取得</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/quote</td><td>見積もり取得（売/買トークン、数量）</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/pools</td><td>流動性プール一覧</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/pools/{id}/ticks</td><td>tick範囲ごとの流動性</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/tokens</td><td>サポートトークン一覧</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/tokens/{addr}/price</td><td>リアルタイム価格</td></tr>
+      <tr><td style="color: var(--accent);">POST</td><td>/v1/liquidity/add</td><td>流動性追加</td></tr>
+      <tr><td style="color: var(--accent);">POST</td><td>/v1/liquidity/remove</td><td>流動性削除</td></tr>
+      <tr><td style="color: #3b82f6;">GET</td><td>/v1/history/{address}</td><td>取引履歴</td></tr>
+    </tbody>
+  </table>
+
+  <h3>WebSocket</h3>
+  <div class="code-block">
+<span class="code-comment">// 接続</span>
+ws = <span class="code-keyword">new</span> <span class="code-type">WebSocket</span>(<span class="code-string">"wss://api.ari.exchange/v1/ws"</span>)
+
+<span class="code-comment">// 購読</span>
+ws.<span class="code-fn">send</span>({ <span class="code-string">"subscribe"</span>: [
+    <span class="code-string">"ticker:ETH-USDC"</span>,      <span class="code-comment">// リアルタイム価格</span>
+    <span class="code-string">"orderbook:ETH-USDC"</span>,   <span class="code-comment">// 板情報</span>
+    <span class="code-string">"trades:ETH-USDC"</span>,      <span class="code-comment">// 約定</span>
+    <span class="code-string">"intent:0xabc..."</span>,      <span class="code-comment">// 自分のインテント進捗</span>
+]})
+
+<span class="code-comment">// イベント受信</span>
+{ <span class="code-string">"type"</span>: <span class="code-string">"trade"</span>, <span class="code-string">"pair"</span>: <span class="code-string">"ETH-USDC"</span>, <span class="code-string">"price"</span>: <span class="code-string">"3421.50"</span>, <span class="code-string">"size"</span>: <span class="code-string">"2.5"</span>, <span class="code-string">"ts"</span>: <span class="code-string">1741234567890</span> }
+  </div>
+
+  <h3>レート制限</h3>
+  <table>
+    <thead><tr><th>Tier</th><th>Requests/min</th><th>WS connections</th><th>条件</th></tr></thead>
+    <tbody>
+      <tr><td>Free</td><td>60</td><td>2</td><td>API key</td></tr>
+      <tr><td>Pro</td><td>600</td><td>10</td><td>$ARI ステーク 1,000+</td></tr>
+      <tr><td>Solver</td><td>6,000</td><td>50</td><td>認定ソルバー</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- ===== SECURITY ===== -->
+<section id="security">
+<div class="container">
+  <h2><span>#8</span> Security Model</h2>
+  <p class="section-sub">15億円のセキュリティ予算 — 1件のハックで全てが終わる</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h4>&#128270; 多層監査</h4>
+      <p><strong>3社以上</strong>の独立監査。Trail of Bits（低レベル）、OpenZeppelin（コントラクト）、Spearbit（経済モデル）。各モジュールを異なるチームが監査。</p>
+    </div>
+    <div class="card">
+      <h4>&#128202; フォーマル検証</h4>
+      <p>Certora / Halmos でコントラクトの数学的正当性を証明。「スワップ後にユーザー資産が減少しない」等の不変条件を網羅。</p>
+    </div>
+    <div class="card">
+      <h4>&#127919; バグバウンティ</h4>
+      <p>Immunefi上で<strong>最大$10M</strong>の報奨金。Critical（資金喪失）= $10M、High（プロトコル停止）= $1M。業界最高水準。</p>
+    </div>
+    <div class="card">
+      <h4>&#128680; 緊急対応</h4>
+      <p>Circuit Breaker: 異常な価格変動/大量引出を自動検知。Guardian Multisig (5/9) でプロトコル一時停止。30日後にガバナンスへ権限移譲。</p>
+    </div>
+  </div>
+
+  <h3>セキュリティチェックリスト</h3>
+  <table>
+    <thead><tr><th>カテゴリ</th><th>対策</th><th>ステータス</th></tr></thead>
+    <tbody>
+      <tr><td>Reentrancy</td><td>CEI パターン + ReentrancyGuard</td><td>設計済</td></tr>
+      <tr><td>Oracle Manipulation</td><td>TWAP + 複数ソース + 外れ値検知</td><td>設計済</td></tr>
+      <tr><td>Flash Loan Attack</td><td>バッチオークション（同ブロック攻撃不可）</td><td>設計済</td></tr>
+      <tr><td>Governance Attack</td><td>Timelock 7d + veToken（長期ロック）</td><td>設計済</td></tr>
+      <tr><td>Bridge Exploit</td><td>マルチブリッジ検証 + 遅延引出</td><td>設計済</td></tr>
+      <tr><td>Key Compromise</td><td>MPC + HSM + 権限分離</td><td>設計済</td></tr>
+      <tr><td>DoS</td><td>レート制限 + ステーク要件 + CDN</td><td>設計済</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- ===== COMPARISON ===== -->
+<section id="compare">
+<div class="container">
+  <h2><span>#9</span> Competitive Comparison</h2>
+  <p class="section-sub">既存DEXとの比較</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Uniswap V4</th>
+        <th>Jupiter</th>
+        <th>dYdX V4</th>
+        <th style="color: var(--accent);">ARI</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>取引モデル</td>
+        <td>AMM (CLMM)</td>
+        <td>Aggregator</td>
+        <td>OrderBook</td>
+        <td class="compare-good">Hybrid + Intent</td>
+      </tr>
+      <tr>
+        <td>MEV保護</td>
+        <td class="compare-bad">Hook依存</td>
+        <td class="compare-bad">なし</td>
+        <td>一部（FBA）</td>
+        <td class="compare-good">暗号化 + Batch</td>
+      </tr>
+      <tr>
+        <td>クロスチェーン</td>
+        <td class="compare-bad">EVMのみ</td>
+        <td class="compare-bad">Solanaのみ</td>
+        <td class="compare-bad">Cosmos</td>
+        <td class="compare-good">EVM + SVM + 任意</td>
+      </tr>
+      <tr>
+        <td>レイテンシ</td>
+        <td>~12s (block)</td>
+        <td>~400ms</td>
+        <td>~1s</td>
+        <td class="compare-good">&lt; 500ms</td>
+      </tr>
+      <tr>
+        <td>取引コスト</td>
+        <td>$1-50 (gas)</td>
+        <td>&lt; $0.01</td>
+        <td>$0</td>
+        <td class="compare-good">&lt; $0.001</td>
+      </tr>
+      <tr>
+        <td>ガスレス取引</td>
+        <td class="compare-bad">No</td>
+        <td class="compare-bad">No</td>
+        <td class="compare-good">Yes</td>
+        <td class="compare-good">Yes</td>
+      </tr>
+      <tr>
+        <td>セルフカストディ</td>
+        <td class="compare-good">Yes</td>
+        <td class="compare-good">Yes</td>
+        <td class="compare-good">Yes</td>
+        <td class="compare-good">Yes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+<!-- ===== TIMELINE ===== -->
+<section id="timeline">
+<div class="container">
+  <h2><span>#10</span> Development Timeline</h2>
+  <p class="section-sub">24ヶ月で完全分散化まで到達</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="period">Phase 0 — Month 0-3</div>
+      <h4>Foundation</h4>
+      <p>チーム構築、アーキテクチャ設計確定、開発環境構築。AI（Claude/Cursor）による高速プロトタイピング開始。Rustワークスペース・CI/CDセットアップ。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="period">Phase 1 — Month 3-9</div>
+      <h4>Core Protocol + Testnet</h4>
+      <p>matching-engine、intent-gateway、solver-sdk、smart-contracts の実装完了。テストネットローンチ。ソルバーパートナー3社以上とテスト開始。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="period">Phase 2 — Month 9-12</div>
+      <h4>Audit + Bug Bounty</h4>
+      <p>3社監査実施。フォーマル検証完了。Immunefiでバグバウンティ開始。クローズドベータ（招待制）で実資産テスト。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="period">Phase 3 — Month 12-15</div>
+      <h4>Mainnet Launch (EVM)</h4>
+      <p>Ethereum + Arbitrum + Baseでメインネットローンチ。流動性マイニング開始。$ARIトークンTGE。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="period">Phase 4 — Month 15-18</div>
+      <h4>Multi-chain Expansion</h4>
+      <p>Solana対応。クロスチェーンインテント有効化。マーケットメーカー統合拡大。TVL $500M目標。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="period">Phase 5 — Month 18-24</div>
+      <h4>Full Decentralization</h4>
+      <p>分散型シーケンサー移行。ガバナンス完全移譲。Guardianマルチシグ解散。プロトコル完全自律。</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== BUDGET ===== -->
+<section id="budget">
+<div class="container">
+  <h2><span>#11</span> Budget Allocation</h2>
+  <p class="section-sub">100億円（~$67M）の配分</p>
+
+  <div class="budget-bar">
+    <div style="width: 30%; background: var(--primary);">開発 30%</div>
+    <div style="width: 25%; background: var(--accent);">流動性 25%</div>
+    <div style="width: 15%; background: var(--danger);">Security 15%</div>
+    <div style="width: 15%; background: #f59e0b;">Team 15%</div>
+    <div style="width: 10%; background: #8b5cf6;">Marketing 10%</div>
+    <div style="width: 5%; background: #64748b;">Legal 5%</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>カテゴリ</th><th>金額</th><th>内訳</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>プロトコル開発</strong></td>
+        <td>30億円</td>
+        <td>AI開発ツール（Claude Pro/Cursor）、インフラ（テストネットノード、CI/CD）、外部コントリビューター報酬</td>
+      </tr>
+      <tr>
+        <td><strong>流動性ブートストラップ</strong></td>
+        <td>25億円</td>
+        <td>LP報酬（10億）、トレーディング報酬（5億）、マーケットメーカー契約（5億）、プロトコル統合（5億）</td>
+      </tr>
+      <tr>
+        <td><strong>セキュリティ</strong></td>
+        <td>15億円</td>
+        <td>外部監査3社（5億）、フォーマル検証（3億）、バグバウンティ原資（5億）、内部レッドチーム（2億）</td>
+      </tr>
+      <tr>
+        <td><strong>チーム採用</strong></td>
+        <td>15億円</td>
+        <td>コアチーム30-40名（2年分）: プロトコルEng x10、MEV研究者 x5、暗号学者 x3、インフラ x5、Frontend x5、Security x5</td>
+      </tr>
+      <tr>
+        <td><strong>マーケティング・BD</strong></td>
+        <td>10億円</td>
+        <td>エコシステム助成金、ハッカソン、カンファレンス、コミュニティ運営</td>
+      </tr>
+      <tr>
+        <td><strong>リーガル</strong></td>
+        <td>5億円</td>
+        <td>各国規制対応、DAO法人設立、ライセンス取得</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>AI開発によるコスト効率化</h3>
+  <div class="card-grid" style="margin-top: 16px;">
+    <div class="card">
+      <h4>従来の開発チーム</h4>
+      <p>エンジニア50名 x $200K/年 x 2年 = <strong>$20M</strong><br>
+      開発速度: ~89,000 LOC / 12ヶ月</p>
+    </div>
+    <div class="card" style="border-color: var(--accent);">
+      <h4>AI + 少数精鋭</h4>
+      <p>エンジニア15名 x $250K/年 x 2年 + AI = <strong>$8M</strong><br>
+      開発速度: ~89,000 LOC / 6ヶ月<br>
+      <span style="color: var(--accent);">コスト60%削減、速度2倍</span></p>
+    </div>
+  </div>
+</div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>ARI v0.1 — Draft</p>
+    <p style="margin-top: 8px;">ARI — Built by Ariyasu &amp; Hamada &middot; 2026</p>
+  </div>
+</footer>
+
+</body>
+</html>
