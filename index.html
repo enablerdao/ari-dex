@@ -617,6 +617,8 @@
     <a href="#api">API</a>
     <a href="#compare">Compare</a>
     <a href="#timeline">Timeline</a>
+    <a href="#tokenomics">Tokenomics</a>
+    <a href="#legal">Legal</a>
     <a href="#team">Team</a>
   </div>
 </nav>
@@ -666,9 +668,10 @@
   <div class="thesis-box reveal">
     <h3 style="color: var(--primary-light); margin-bottom: 16px; font-size: 1.2rem;">Core Thesis</h3>
     <p style="font-size: 1rem; line-height: 1.9;">
-      DeFiの取引量は年間<strong>$1T超</strong>。しかし<strong style="color: var(--danger);">年間$10B以上がMEVとして搾取</strong>され、UXの悪さからユーザーの90%以上がCEXに留まっている。
+      DEXのスポット取引量は2024年に<strong>$1.76T</strong>に達し（CoinGecko）、DEX/CEXスポット比率は<strong>約20%</strong>まで拡大（The Block, 2025）。
+      しかし<strong style="color: var(--danger);">累計$3B以上がMEVとして搾取</strong>され（Flashbots, 2025）、UXの壁から取引の<strong>約80%は依然としてCEX</strong>に留まっている。
       根本原因は<strong>「注文の順序依存性」と「チェーンの分断」</strong>。
-      インテントベース + 暗号化バッチオークションはこれを構造的に解決する唯一のアーキテクチャであり、今まさにインフラが実用段階に達した。
+      インテントベース + 暗号化バッチオークションはこれを構造的に解決する最も有力なアーキテクチャであり、今まさにインフラが実用段階に達した。
     </p>
   </div>
 
@@ -916,7 +919,7 @@
 <div class="container">
   <div class="section-label reveal">Security</div>
   <h2 class="reveal">MEV <span class="gradient">Protection</span></h2>
-  <p class="section-sub reveal">年間$10B以上が搾取されるMEV問題を、パッチではなくアーキテクチャで解決</p>
+  <p class="section-sub reveal">累計$3B以上が搾取されるMEV問題を、パッチではなくアーキテクチャで解決</p>
 
   <div class="card-grid reveal">
     <div class="card">
@@ -1089,6 +1092,240 @@ ws.<span class="c-fn">send</span>({ <span class="c-str">"subscribe"</span>: [
     <div class="card">
       <h4>Step 3: ソルバーSDK公開</h4>
       <p>ari-solverをOSSで公開し、誰でもソルバーとして参加可能に。ソルバー数の増加 → 価格改善 → ユーザー増 → さらにソルバー参入のフライホイール。</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== TOKENOMICS ===== -->
+<section id="tokenomics">
+<div class="container">
+  <div class="section-label reveal">Token Design</div>
+  <h2 class="reveal">$ARI <span class="gradient">Tokenomics</span></h2>
+  <p class="section-sub reveal">日本の金商法をクリアしつつ、全ステークホルダーが報われるユーティリティ＆ガバナンス特化型設計。総発行量10億枚固定。</p>
+
+  <!-- Allocation Donut -->
+  <div class="reveal" style="display: flex; flex-wrap: wrap; gap: 32px; align-items: center; margin-bottom: 40px;">
+    <div style="flex: 1; min-width: 280px;">
+      <svg viewBox="0 0 200 200" style="max-width: 280px; margin: 0 auto; display: block;">
+        <!-- 45% Ecosystem: 0 to 162deg -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#06d6a0" stroke-width="28"
+          stroke-dasharray="226.2 276.5" stroke-dashoffset="0" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 20% Treasury: 162 to 234deg -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#818cf8" stroke-width="28"
+          stroke-dasharray="100.5 402.1" stroke-dashoffset="-226.2" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 15% Team: 234 to 288deg -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#f59e0b" stroke-width="28"
+          stroke-dasharray="75.4 427.3" stroke-dashoffset="-326.7" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 15% VC: 288 to 342deg -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#3b82f6" stroke-width="28"
+          stroke-dasharray="75.4 427.3" stroke-dashoffset="-402.1" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <!-- 5% Public: 342 to 360deg -->
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#ef4444" stroke-width="28"
+          stroke-dasharray="25.1 477.5" stroke-dashoffset="-477.5" transform="rotate(-90 100 100)" opacity="0.9"/>
+        <text x="100" y="95" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="800">$ARI</text>
+        <text x="100" y="115" text-anchor="middle" fill="#8892a8" font-size="9">1,000,000,000</text>
+      </svg>
+    </div>
+    <div style="flex: 1; min-width: 300px;">
+      <table>
+        <thead><tr><th>Allocation</th><th>%</th><th>枚数</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #06d6a0; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">Ecosystem</strong></td>
+            <td style="color: var(--accent); font-weight: 700;">45%</td>
+            <td>450M</td>
+            <td>ソルバー報酬、LP incentive、取引リベート、Airdrop</td>
+          </tr>
+          <tr>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #818cf8; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">Treasury</strong></td>
+            <td style="color: var(--primary-light); font-weight: 700;">20%</td>
+            <td>200M</td>
+            <td>チェーン拡張、監査、保険基金、ガバナンス決定</td>
+          </tr>
+          <tr>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">Team</strong></td>
+            <td style="color: var(--warning); font-weight: 700;">15%</td>
+            <td>150M</td>
+            <td>創業者 &amp; 初期開発メンバー</td>
+          </tr>
+          <tr>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #3b82f6; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">Investors</strong></td>
+            <td style="color: #3b82f6; font-weight: 700;">15%</td>
+            <td>150M</td>
+            <td>Seed / Private VC</td>
+          </tr>
+          <tr>
+            <td><span style="display: inline-block; width: 10px; height: 10px; background: #ef4444; border-radius: 2px; margin-right: 6px;"></span><strong style="color: var(--text);">Public</strong></td>
+            <td style="color: var(--danger); font-weight: 700;">5%</td>
+            <td>50M</td>
+            <td>IEO / Launchpad</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Vesting -->
+  <h3 class="reveal" style="margin-bottom: 16px;">Vesting Schedule — 売り抜け防止</h3>
+  <p class="reveal" style="color: var(--text-dim); font-size: 0.88rem; margin-bottom: 20px;">
+    「上場直後に運営とVCが売り抜けて暴落」を構造的に不可能にする。チームは4年フルコミット。
+  </p>
+  <div class="reveal">
+  <table>
+    <thead><tr><th>対象</th><th>Cliff</th><th>Vesting</th><th>合計拘束</th><th>解除条件</th></tr></thead>
+    <tbody>
+      <tr><td style="color: var(--text);"><strong>Team &amp; Founders</strong></td><td>12ヶ月</td><td>36ヶ月（毎月線形）</td><td style="color: var(--warning); font-weight: 600;">4年</td><td>時間ベース</td></tr>
+      <tr><td style="color: var(--text);"><strong>VC Investors</strong></td><td>12ヶ月</td><td>24ヶ月（毎月線形）</td><td style="color: #3b82f6; font-weight: 600;">3年</td><td>時間ベース</td></tr>
+      <tr><td style="color: var(--text);"><strong>Ecosystem</strong></td><td>なし</td><td>成長連動</td><td style="color: var(--accent); font-weight: 600;">動的</td><td>TVL・取引高マイルストーン連動（スマートコントラクト自動解放）</td></tr>
+      <tr><td style="color: var(--text);"><strong>Public Sale</strong></td><td>なし</td><td>なし</td><td>即時</td><td>TGE時に全量流通</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Value Accrual -->
+  <h3 class="reveal" style="margin-top: 40px; margin-bottom: 16px;">Value Accrual — 「配当」なしで価値を上げる</h3>
+  <div class="thesis-box reveal">
+    <p style="font-size: 0.92rem; line-height: 1.8; color: var(--text-dim);">
+      <strong style="color: var(--danger);">日本の金商法リスク:</strong> プロトコル収益をトークンホルダーに直接配当すると「集団投資スキーム」=有価証券とみなされ、完全に身動きが取れなくなる。<br>
+      <strong style="color: var(--accent);">ARI の回避策:</strong> 収益を「ユーティリティ（実用性）」と「トークンの希少性向上」に転換する。
+    </p>
+  </div>
+
+  <div class="card-grid reveal">
+    <div class="card" style="border-top: 3px solid var(--accent);">
+      <h4>Work Token Model</h4>
+      <p style="margin-bottom: 12px;">ソルバーとしてネットワークに参加しスプレッド利益を得るには、<strong style="color: var(--accent);">最低100,000 $ARIのステーキングが必須</strong>。</p>
+      <div style="padding: 12px; background: rgba(6,214,160,0.04); border-radius: 8px; font-size: 0.85rem; border-left: 3px solid var(--accent);">
+        <strong>効果:</strong> 取引量増 &rarr; ソルバー参入増 &rarr; $ARI買い圧 &rarr; 市場からロック。配当ではなく「仕事をするための道具」としてのユーティリティ。日本法上は実用トークン。
+      </div>
+    </div>
+    <div class="card" style="border-top: 3px solid var(--primary-light);">
+      <h4>veARI Governance</h4>
+      <p style="margin-bottom: 12px;">$ARIを長期ロック &rarr; <strong style="color: var(--primary-light);">veARI（投票権）</strong>を取得。ロック期間に応じて投票力が増加。</p>
+      <div style="padding: 12px; background: rgba(99,102,241,0.04); border-radius: 8px; font-size: 0.85rem; border-left: 3px solid var(--primary-light);">
+        <strong>veARI保有者の実用的メリット:</strong><br>
+        &bull; LP報酬のAPRブースト（最大2.5倍）<br>
+        &bull; API Proプラン無料（通常$ARI stake 1,000+）<br>
+        &bull; ガバナンス投票権（手数料率、新チェーン追加、トレジャリー使途）<br>
+        &bull; エコシステムグラント審査への参加権
+      </div>
+    </div>
+    <div class="card" style="border-top: 3px solid var(--warning);">
+      <h4>Buyback &amp; Make</h4>
+      <p style="margin-bottom: 12px;">プロトコル収益（MEV残余20% + 取引手数料）は<strong>配当ではなく</strong>以下に使用:</p>
+      <div style="padding: 12px; background: rgba(245,158,11,0.04); border-radius: 8px; font-size: 0.85rem; border-left: 3px solid var(--warning);">
+        <strong>1.</strong> DAOトレジャリーの拡大（保険基金）<br>
+        <strong>2.</strong> 市場からの$ARI買い上げ &rarr; エコシステムファンドに還元<br>
+        <strong style="color: var(--accent);">= 配当ではないため金商法をクリア</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue Flow -->
+  <h3 class="reveal" style="margin-top: 40px; margin-bottom: 16px;">プロトコル収益フロー</h3>
+  <div class="code-block reveal">
+    <div class="lang-tag">Revenue Flow</div>
+<span class="c-comment">// プロトコル収益の分配（配当ではない）</span>
+
+<span class="c-type">取引手数料</span> (0.01-0.05%)
+  &rarr; 80% <span class="c-str">ソルバー報酬</span>（仕事の対価 = ユーティリティ）
+  &rarr; 20% <span class="c-str">プロトコル収益</span>
+
+<span class="c-type">プロトコル収益</span> (取引手数料20% + MEV残余20%)
+  &rarr; 50% <span class="c-fn">DAOトレジャリー</span>（保険・開発・監査）
+  &rarr; 30% <span class="c-fn">Buyback & Make</span>（$ARI買い上げ → エコシステム還元）
+  &rarr; 20% <span class="c-fn">veARI報酬プール</span>（LP APRブースト原資）
+
+<span class="c-comment">// ※ トークンホルダーへの「直接配当」は一切なし</span>
+<span class="c-comment">// ※ 全て「ユーティリティ」または「DAO運営費」として処理</span>
+  </div>
+</div>
+</section>
+
+<!-- ===== LEGAL STRUCTURE ===== -->
+<section id="legal">
+<div class="container">
+  <div class="section-label reveal">Legal</div>
+  <h2 class="reveal">Corporate <span class="gradient">Structure</span></h2>
+  <p class="section-sub reveal">日本居住の創業者がグローバルWeb3プロジェクトを合法的に運営するための二重構造</p>
+
+  <div class="card-grid reveal">
+    <div class="card" style="border-top: 3px solid var(--primary-light);">
+      <h4 style="margin-bottom: 16px;">ARI Foundation（海外財団）</h4>
+      <div style="padding: 14px; background: rgba(99,102,241,0.04); border-radius: 8px; margin-bottom: 12px;">
+        <div style="font-size: 0.78rem; color: var(--primary-light); font-weight: 700; margin-bottom: 4px;">設立地: スイス or ケイマン諸島</div>
+      </div>
+      <table style="font-size: 0.82rem;">
+        <tr><td style="color: var(--text);">法人形態</td><td>非営利財団（Foundation）</td></tr>
+        <tr><td style="color: var(--text);">役割</td><td>$ARI発行、DAOトレジャリー管理、ガバナンス</td></tr>
+        <tr><td style="color: var(--text);">資金受入</td><td>グローバルVCからの出資</td></tr>
+        <tr><td style="color: var(--text);">収益</td><td>プロトコル手数料 → トレジャリー</td></tr>
+      </table>
+    </div>
+    <div class="card" style="border-top: 3px solid var(--warning);">
+      <h4 style="margin-bottom: 16px;">ARI Labs 株式会社（日本法人）</h4>
+      <div style="padding: 14px; background: rgba(245,158,11,0.04); border-radius: 8px; margin-bottom: 12px;">
+        <div style="font-size: 0.78rem; color: var(--warning); font-weight: 700; margin-bottom: 4px;">設立地: 日本</div>
+      </div>
+      <table style="font-size: 0.82rem;">
+        <tr><td style="color: var(--text);">法人形態</td><td>株式会社</td></tr>
+        <tr><td style="color: var(--text);">役割</td><td>プロトコル開発・保守の業務受託</td></tr>
+        <tr><td style="color: var(--text);">代表</td><td>Ariyasu &amp; Hamada</td></tr>
+        <tr><td style="color: var(--text);">収入源</td><td>財団からの業務委託費（法定通貨 / USDC）</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="arch-arrow reveal" style="font-size: 2rem; margin: 16px 0;">&darr;</div>
+
+  <h3 class="reveal" style="margin-bottom: 16px;">創業者の収益モデル</h3>
+  <div class="reveal">
+  <table>
+    <thead><tr><th>収益源</th><th>仕組み</th><th>税務</th></tr></thead>
+    <tbody>
+      <tr>
+        <td style="color: var(--text);"><strong>安定収益</strong></td>
+        <td>日本法人での役員報酬（財団からの開発委託費から捻出）</td>
+        <td>給与所得（累進課税）</td>
+      </tr>
+      <tr>
+        <td style="color: var(--text);"><strong>キャピタルゲイン</strong></td>
+        <td>個人ウォレットの15% $ARI（4年vesting）を市場で売却</td>
+        <td>雑所得（最大55%）※ 保有中は非課税（2024年改正で自社発行トークンの未実現益課税を撤廃）</td>
+      </tr>
+      <tr>
+        <td style="color: var(--text);"><strong>将来的な最適化</strong></td>
+        <td>日本法人が財団の権利を保有する構造にすれば株式譲渡益として処理可能</td>
+        <td>株式譲渡益（20%）</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Why this structure -->
+  <div class="thesis-box reveal" style="margin-top: 32px;">
+    <h4 style="color: var(--accent); margin-bottom: 12px;">Why This Structure Works</h4>
+    <p style="font-size: 0.9rem; line-height: 1.8; color: var(--text-dim);">
+      <strong style="color: var(--text);">投資家への説明:</strong> 「私たちは法律のグレーゾーンを攻めて配当で釣るポンジスキームは作りません。全トークンの45%をエコシステムに還元し、ソルバーのステーキング要件という強力な実需（ユーティリティ）で$ARIの価値を押し上げ、チームは4年間のロックアップでプロジェクトにフルコミットします。法務ストラクチャーも日・スイスで分離済みです。」
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px;">
+      <div style="padding: 14px; background: rgba(6,214,160,0.04); border-radius: 8px; text-align: center;">
+        <div style="color: var(--accent); font-weight: 700; font-size: 1.3rem;">45%</div>
+        <div style="color: var(--text-dim); font-size: 0.78rem;">コミュニティ配分<br>（業界トップクラス）</div>
+      </div>
+      <div style="padding: 14px; background: rgba(245,158,11,0.04); border-radius: 8px; text-align: center;">
+        <div style="color: var(--warning); font-weight: 700; font-size: 1.3rem;">4年</div>
+        <div style="color: var(--text-dim); font-size: 0.78rem;">チームロックアップ<br>（フルコミット）</div>
+      </div>
+      <div style="padding: 14px; background: rgba(99,102,241,0.04); border-radius: 8px; text-align: center;">
+        <div style="color: var(--primary-light); font-weight: 700; font-size: 1.3rem;">0%</div>
+        <div style="color: var(--text-dim); font-size: 0.78rem;">直接配当<br>（金商法クリア）</div>
+      </div>
+      <div style="padding: 14px; background: rgba(239,68,68,0.04); border-radius: 8px; text-align: center;">
+        <div style="color: var(--danger); font-weight: 700; font-size: 1.3rem;">100K</div>
+        <div style="color: var(--text-dim); font-size: 0.78rem;">$ARI Stake要件<br>（実需ドライバー）</div>
+      </div>
     </div>
   </div>
 </div>
