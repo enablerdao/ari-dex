@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { parseUnits } from "viem";
 import { API_URL } from "../config";
 import type { Token } from "../types";
 
@@ -8,8 +9,12 @@ interface SubmitIntentParams {
   sellAmount: string;
   minBuyAmount: string;
   sender?: string;
-  /** EIP-712 signature hex. If omitted, a placeholder is used (demo mode). */
+  /** EIP-712 signature hex. Required in production. */
   signature?: string;
+  /** Deadline from the signed message (unix timestamp string). */
+  deadline?: string;
+  /** Nonce from the signed message. */
+  nonce?: string;
 }
 
 interface SubmitIntentResult {
@@ -24,11 +29,14 @@ interface SubmitIntentResult {
 export function useSubmitIntent() {
   const mutation = useMutation<SubmitIntentResult, Error, SubmitIntentParams>({
     mutationFn: async (params) => {
-      const rawSellAmount = BigInt(
-        Math.floor(
-          parseFloat(params.sellAmount || "0") *
-            10 ** params.sellToken.decimals,
-        ),
+      // Only allow demo mode in development
+      if (!params.signature && import.meta.env.PROD) {
+        throw new Error("Wallet signature required in production");
+      }
+
+      const rawSellAmount = parseUnits(
+        params.sellAmount || "0",
+        params.sellToken.decimals,
       ).toString();
 
       const placeholder =
@@ -41,6 +49,8 @@ export function useSubmitIntent() {
         sell_amount: rawSellAmount,
         min_buy_amount: params.minBuyAmount,
         signature: params.signature ?? placeholder,
+        deadline: params.deadline,
+        nonce: params.nonce,
       };
 
       const res = await fetch(`${API_URL}/v1/intents`, {

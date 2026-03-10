@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -36,15 +37,6 @@ struct DepositRequest {
     amount: String,
     token: String,
     owner: String,
-}
-
-#[derive(Serialize)]
-struct DepositResponse {
-    position_id: String,
-    strategy_id: String,
-    amount: String,
-    token: String,
-    status: String,
 }
 
 #[derive(Serialize)]
@@ -111,7 +103,7 @@ async fn list_yields(
 async fn deposit(
     State(state): State<Arc<AppState>>,
     Json(body): Json<DepositRequest>,
-) -> (StatusCode, Json<DepositResponse>) {
+) -> impl IntoResponse {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -120,7 +112,7 @@ async fn deposit(
     let position_id = format!("yp-{:016x}{:08x}", now, rand::random::<u32>());
 
     {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db.lock().await;
         if let Err(e) = db::insert_yield_position(
             &conn,
             &position_id,
@@ -133,27 +125,23 @@ async fn deposit(
             tracing::error!("Failed to insert yield position: {e}");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(DepositResponse {
-                    position_id: String::new(),
-                    strategy_id: body.strategy_id,
-                    amount: body.amount,
-                    token: body.token,
-                    status: "error".to_string(),
-                }),
-            );
+                Json(serde_json::json!({"error": "internal error"})),
+            )
+                .into_response();
         }
     }
 
     (
         StatusCode::CREATED,
-        Json(DepositResponse {
-            position_id,
-            strategy_id: body.strategy_id,
-            amount: body.amount,
-            token: body.token,
-            status: "active".to_string(),
-        }),
+        Json(serde_json::json!({
+            "position_id": position_id,
+            "strategy_id": body.strategy_id,
+            "amount": body.amount,
+            "token": body.token,
+            "status": "active",
+        })),
     )
+        .into_response()
 }
 
 async fn get_positions(
@@ -161,7 +149,7 @@ async fn get_positions(
     Path(address): Path<String>,
 ) -> Json<PositionsResponse> {
     let positions = {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db.lock().await;
         match db::list_yield_positions(&conn, &address) {
             Ok(rows) => rows
                 .into_iter()

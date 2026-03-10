@@ -4,6 +4,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use rusqlite::params;
@@ -77,99 +79,108 @@ struct StatusResponse {
 // Handlers
 // ---------------------------------------------------------------------------
 
-async fn leaderboard(State(state): State<Arc<AppState>>) -> Json<LeaderboardResponse> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare(
-            "SELECT address, total_pnl, win_rate, trade_count, volume
-             FROM trader_stats ORDER BY CAST(total_pnl AS REAL) DESC LIMIT 10",
-        )
-        .unwrap();
-    let traders = stmt
-        .query_map([], |row| {
-            Ok(TraderStats {
-                address: row.get(0)?,
-                total_pnl: row.get(1)?,
-                win_rate: row.get(2)?,
-                trade_count: row.get(3)?,
-                volume: row.get(4)?,
-            })
+async fn leaderboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(
+        "SELECT address, total_pnl, win_rate, trade_count, volume
+         FROM trader_stats ORDER BY CAST(total_pnl AS REAL) DESC LIMIT 10",
+    ) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let traders = match stmt.query_map([], |row| {
+        Ok(TraderStats {
+            address: row.get(0)?,
+            total_pnl: row.get(1)?,
+            win_rate: row.get(2)?,
+            trade_count: row.get(3)?,
+            volume: row.get(4)?,
         })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect();
-    Json(LeaderboardResponse { traders })
+    }) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    Json(LeaderboardResponse { traders }).into_response()
 }
 
 async fn follow(
     State(state): State<Arc<AppState>>,
     Json(body): Json<FollowRequest>,
-) -> Json<StatusResponse> {
+) -> impl IntoResponse {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs() as i64;
-    let db = state.db.lock().unwrap();
-    db.execute(
+    let db = state.db.lock().await;
+    if let Err(e) = db.execute(
         "INSERT OR IGNORE INTO follows (follower, trader, created_at) VALUES (?1, ?2, ?3)",
         params![body.follower, body.trader, now],
-    )
-    .unwrap();
-    Json(StatusResponse { status: "followed" })
+    ) {
+        tracing::error!("Failed to follow: {e}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
+    Json(StatusResponse { status: "followed" }).into_response()
 }
 
 async fn unfollow(
     State(state): State<Arc<AppState>>,
     Json(body): Json<FollowRequest>,
-) -> Json<StatusResponse> {
-    let db = state.db.lock().unwrap();
-    db.execute(
+) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    if let Err(e) = db.execute(
         "DELETE FROM follows WHERE follower = ?1 AND trader = ?2",
         params![body.follower, body.trader],
-    )
-    .unwrap();
+    ) {
+        tracing::error!("Failed to unfollow: {e}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
     Json(StatusResponse {
         status: "unfollowed",
     })
+    .into_response()
 }
 
 async fn following(
     State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
-) -> Json<FollowingResponse> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare("SELECT trader, created_at FROM follows WHERE follower = ?1 ORDER BY created_at DESC")
-        .unwrap();
-    let following = stmt
-        .query_map(params![address], |row| {
-            Ok(FollowEntry {
-                trader: row.get(0)?,
-                created_at: row.get(1)?,
-            })
+) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(
+        "SELECT trader, created_at FROM follows WHERE follower = ?1 ORDER BY created_at DESC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let following = match stmt.query_map(params![address], |row| {
+        Ok(FollowEntry {
+            trader: row.get(0)?,
+            created_at: row.get(1)?,
         })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect();
-    Json(FollowingResponse { following })
+    }) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    Json(FollowingResponse { following }).into_response()
 }
 
 async fn create_copy_trade(
     State(state): State<Arc<AppState>>,
     Json(body): Json<CopyTradeRequest>,
-) -> Json<CopyTrade> {
+) -> impl IntoResponse {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs() as i64;
     let id = format!("ct_{}", now);
-    let db = state.db.lock().unwrap();
-    db.execute(
+    let db = state.db.lock().await;
+    if let Err(e) = db.execute(
         "INSERT INTO copy_trades (id, copier, trader, max_amount, active, created_at)
          VALUES (?1, ?2, ?3, ?4, 1, ?5)",
         params![id, body.copier, body.trader, body.max_amount, now],
-    )
-    .unwrap();
+    ) {
+        tracing::error!("Failed to create copy trade: {e}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
     Json(CopyTrade {
         id,
         copier: body.copier,
@@ -178,37 +189,38 @@ async fn create_copy_trade(
         active: true,
         created_at: now,
     })
+    .into_response()
 }
 
 async fn list_copy_trades(
     State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
-) -> Json<CopyTradesResponse> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare(
-            "SELECT id, copier, trader, max_amount, active, created_at
-             FROM copy_trades WHERE copier = ?1 AND active = 1 ORDER BY created_at DESC",
-        )
-        .unwrap();
-    let copy_trades = stmt
-        .query_map(params![address], |row| {
-            Ok(CopyTrade {
-                id: row.get(0)?,
-                copier: row.get(1)?,
-                trader: row.get(2)?,
-                max_amount: row.get(3)?,
-                active: {
-                    let v: i64 = row.get(4)?;
-                    v != 0
-                },
-                created_at: row.get(5)?,
-            })
+) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(
+        "SELECT id, copier, trader, max_amount, active, created_at
+         FROM copy_trades WHERE copier = ?1 AND active = 1 ORDER BY created_at DESC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let copy_trades = match stmt.query_map(params![address], |row| {
+        Ok(CopyTrade {
+            id: row.get(0)?,
+            copier: row.get(1)?,
+            trader: row.get(2)?,
+            max_amount: row.get(3)?,
+            active: {
+                let v: i64 = row.get(4)?;
+                v != 0
+            },
+            created_at: row.get(5)?,
         })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect();
-    Json(CopyTradesResponse { copy_trades })
+    }) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    Json(CopyTradesResponse { copy_trades }).into_response()
 }
 
 // ---------------------------------------------------------------------------

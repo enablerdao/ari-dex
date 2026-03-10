@@ -4,10 +4,12 @@
 //! - `prices`: Mock price updates every 5 seconds
 //! - `intents`: Real-time intent submission notifications
 
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
@@ -15,7 +17,7 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::app::AppState;
+use crate::app::{AppState, MAX_WS_CONNECTIONS};
 
 /// Message sent by clients to subscribe to channels.
 #[derive(Deserialize)]
@@ -101,10 +103,20 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
+    // Check connection limit before upgrading.
+    let current = state.ws_connections.load(Ordering::Relaxed);
+    if current >= MAX_WS_CONNECTIONS {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+
     ws.on_upgrade(move |socket| handle_socket(socket, state))
+        .into_response()
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
+    // Increment connection counter.
+    state.ws_connections.fetch_add(1, Ordering::Relaxed);
+
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
     let mut subscribed_prices = false;
@@ -204,6 +216,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     drop(sub_tx);
     broadcast_task.abort();
     let _ = write_task.await;
+
+    // Decrement connection counter.
+    state.ws_connections.fetch_sub(1, Ordering::Relaxed);
 }
 
 /// Broadcast a new intent event to all WebSocket subscribers.

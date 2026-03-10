@@ -32,6 +32,8 @@ export function SwapPanel() {
   const { submit, isPending: submitPending } = useSubmitIntent();
   const { signIntent, isSigning } = useSignIntent();
 
+  const isSameToken = sellToken.symbol === buyToken.symbol;
+
   const handleSwapTokens = useCallback(() => {
     setSellToken(buyToken);
     setBuyToken(sellToken);
@@ -40,19 +42,24 @@ export function SwapPanel() {
   }, [sellToken, buyToken]);
 
   const handleSubmit = useCallback(async () => {
-    if (!sellAmount || !quote) return;
+    if (!sellAmount || !quote || isSameToken) return;
 
     let signature: string | undefined;
+    let deadline: string | undefined;
+    let nonce: string | undefined;
 
     if (isConnected && address) {
       try {
-        signature = await signIntent({
+        const result = await signIntent({
           sender: address,
           sellToken,
           buyToken,
           sellAmount,
           minBuyAmount: quote.buy_amount,
         });
+        signature = result.signature;
+        deadline = result.deadline;
+        nonce = result.nonce;
       } catch {
         // User rejected signing or wallet error — abort
         return;
@@ -67,12 +74,14 @@ export function SwapPanel() {
         minBuyAmount: quote.buy_amount,
         sender: address,
         signature,
+        deadline,
+        nonce,
       },
       {
         onSuccess: (data) => setSubmitted(data.intent_id),
       },
     );
-  }, [sellToken, buyToken, sellAmount, quote, submit, address, isConnected, signIntent]);
+  }, [sellToken, buyToken, sellAmount, quote, submit, address, isConnected, signIntent, isSameToken]);
 
   // Format buy amount from raw to human-readable
   const formatBuyAmount = () => {
@@ -82,19 +91,21 @@ export function SwapPanel() {
     return (raw / 10 ** decimals).toFixed(decimals > 8 ? 6 : 2);
   };
 
-  const buttonLabel = !sellAmount
-    ? "Enter Amount"
-    : quoteLoading
-      ? "Fetching Quote..."
-      : isSigning
-        ? "Signing..."
-        : submitPending
-          ? "Submitting Intent..."
-          : isConnected
-            ? "Sign & Swap"
-            : "Swap (Demo Mode)";
+  const buttonLabel = isSameToken
+    ? "Select Different Tokens"
+    : !sellAmount
+      ? "Enter Amount"
+      : quoteLoading
+        ? "Fetching Quote..."
+        : isSigning
+          ? "Signing..."
+          : submitPending
+            ? "Submitting Intent..."
+            : isConnected
+              ? "Sign & Swap"
+              : "Swap (Demo Mode)";
 
-  const buttonDisabled = !sellAmount || quoteLoading || submitPending || isSigning;
+  const buttonDisabled = !sellAmount || quoteLoading || submitPending || isSigning || isSameToken;
 
   return (
     <div className="swap-panel">
@@ -111,8 +122,11 @@ export function SwapPanel() {
             placeholder="0.0"
             value={sellAmount}
             onChange={(e) => {
-              setSellAmount(e.target.value);
-              setSubmitted(null);
+              const val = e.target.value;
+              if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                setSellAmount(val);
+                setSubmitted(null);
+              }
             }}
           />
           <select
@@ -134,7 +148,7 @@ export function SwapPanel() {
 
       {/* Swap direction button */}
       <button className="swap-panel-flip" onClick={handleSwapTokens}>
-        ↕
+        &darr;
       </button>
 
       {/* Buy section */}
@@ -166,8 +180,15 @@ export function SwapPanel() {
         </div>
       </div>
 
+      {/* Same-token warning */}
+      {isSameToken && (
+        <div className="swap-panel-warning">
+          Cannot swap a token for itself. Please select different tokens.
+        </div>
+      )}
+
       {/* Quote details */}
-      {quote && (
+      {quote && !isSameToken && (
         <div className="swap-panel-details">
           <div className="swap-panel-detail-row">
             <span>Price</span>
@@ -182,7 +203,7 @@ export function SwapPanel() {
           </div>
           <div className="swap-panel-detail-row">
             <span>Route</span>
-            <span>{quote.route.join(" → ")}</span>
+            <span>{quote.route.join(" -> ")}</span>
           </div>
         </div>
       )}

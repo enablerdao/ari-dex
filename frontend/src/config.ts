@@ -1,7 +1,11 @@
 import { ChainId } from "./types";
 
 /** Base URL for the ARI gateway API. */
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const rawUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+if (import.meta.env.PROD && !rawUrl.startsWith("https://")) {
+  console.error("API_URL must use HTTPS in production");
+}
+export const API_URL = rawUrl;
 
 /** Supported chains and their RPC endpoints. */
 export const SUPPORTED_CHAINS = [
@@ -25,12 +29,12 @@ export const SUPPORTED_CHAINS = [
   },
 ] as const;
 
-/** Placeholder contract addresses. */
+/** Contract addresses — set via env vars; zero-address fallback is a placeholder for local dev only. */
 export const CONTRACTS = {
   /** ARI Settlement contract. */
-  settlement: "0x0000000000000000000000000000000000000000" as const,
+  settlement: (import.meta.env.VITE_SETTLEMENT_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
   /** ARI Intent mempool. */
-  intentPool: "0x0000000000000000000000000000000000000000" as const,
+  intentPool: (import.meta.env.VITE_INTENT_POOL_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`,
 } as const;
 
 /** Default slippage tolerance (0.5%). */

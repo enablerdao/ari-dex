@@ -4,6 +4,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use rusqlite::params;
@@ -85,76 +87,78 @@ const SOLVER_COLS: &str =
 // Handlers
 // ---------------------------------------------------------------------------
 
-async fn list_solvers(State(state): State<Arc<AppState>>) -> Json<SolversResponse> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare(&format!(
-            "SELECT {} FROM solvers WHERE active = 1 ORDER BY score DESC",
-            SOLVER_COLS
-        ))
-        .unwrap();
-    let solvers = stmt
-        .query_map([], row_to_solver)
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect();
-    Json(SolversResponse { solvers })
+async fn list_solvers(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(&format!(
+        "SELECT {} FROM solvers WHERE active = 1 ORDER BY score DESC",
+        SOLVER_COLS
+    )) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let solvers = match stmt.query_map([], row_to_solver) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    Json(SolversResponse { solvers }).into_response()
 }
 
 async fn solver_detail(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> Json<serde_json::Value> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare(&format!(
-            "SELECT {} FROM solvers WHERE id = ?1",
-            SOLVER_COLS
-        ))
-        .unwrap();
-    let solver = stmt
-        .query_map(params![id], row_to_solver)
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .next();
+) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(&format!(
+        "SELECT {} FROM solvers WHERE id = ?1",
+        SOLVER_COLS
+    )) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let solver = match stmt.query_map(params![id], row_to_solver) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).next(),
+        Err(_) => None,
+    };
     match solver {
-        Some(s) => Json(serde_json::to_value(s).unwrap()),
-        None => Json(serde_json::json!({"error": "solver not found"})),
+        Some(s) => Json(serde_json::to_value(s).unwrap()).into_response(),
+        None => Json(serde_json::json!({"error": "solver not found"})).into_response(),
     }
 }
 
-async fn solver_leaderboard(State(state): State<Arc<AppState>>) -> Json<SolversResponse> {
-    let db = state.db.lock().unwrap();
-    let mut stmt = db
-        .prepare(&format!(
-            "SELECT {} FROM solvers ORDER BY score DESC",
-            SOLVER_COLS
-        ))
-        .unwrap();
-    let solvers = stmt
-        .query_map([], row_to_solver)
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect();
-    Json(SolversResponse { solvers })
+async fn solver_leaderboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let db = state.db.lock().await;
+    let mut stmt = match db.prepare(&format!(
+        "SELECT {} FROM solvers ORDER BY score DESC",
+        SOLVER_COLS
+    )) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
+    let solvers = match stmt.query_map([], row_to_solver) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
+    Json(SolversResponse { solvers }).into_response()
 }
 
 async fn register_solver(
     State(state): State<Arc<AppState>>,
     Json(body): Json<RegisterRequest>,
-) -> Json<Solver> {
+) -> impl IntoResponse {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs() as i64;
     let id = format!("solver_{}", now);
-    let db = state.db.lock().unwrap();
-    db.execute(
+    let db = state.db.lock().await;
+    if let Err(e) = db.execute(
         "INSERT INTO solvers (id, address, name, endpoint, fill_rate, avg_improvement, total_volume, total_fills, score, active, created_at)
          VALUES (?1, ?2, ?3, ?4, 0.0, 0.0, '0', 0, 50.0, 1, ?5)",
         params![id, body.address, body.name, body.endpoint, now],
-    )
-    .unwrap();
+    ) {
+        tracing::error!("Failed to register solver: {e}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
     Json(Solver {
         id,
         address: body.address,
@@ -168,6 +172,7 @@ async fn register_solver(
         active: true,
         created_at: now,
     })
+    .into_response()
 }
 
 async fn solver_history(
@@ -177,7 +182,7 @@ async fn solver_history(
     // Mock fill history for the solver
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs() as i64;
     let fills = (0..5)
         .map(|i| FillRecord {

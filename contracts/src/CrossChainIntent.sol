@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 /// @title CrossChainIntent
 /// @author ARI DEX
 /// @notice Implements ERC-7683 CrossChainOrder flow for cross-chain intent settlement.
 ///         Users open orders specifying token swaps across chains; solvers fill them
 ///         on the destination chain; resolution data is recorded for verification.
+///         Origin tokens are escrowed in the contract until fill or cancellation.
 contract CrossChainIntent {
+    using SafeERC20 for IERC20;
+
     // ─── Structs (ERC-7683 aligned) ─────────────────────────────────────
 
-    /// @notice A cross-chain order following the ERC-7683 CrossChainOrder struct
     struct CrossChainOrder {
         address user;
         uint256 originChainId;
@@ -20,17 +25,15 @@ contract CrossChainIntent {
         uint256 minDestinationAmount;
         uint256 deadline;
         uint256 nonce;
-        bytes orderData; // additional solver hints / routing data
+        bytes orderData;
     }
 
-    /// @notice Fill data submitted by a solver
     struct FillData {
         address solver;
         uint256 destinationAmount;
-        bytes proof; // proof of fill on destination chain
+        bytes proof;
     }
 
-    /// @notice Resolution data for a completed order
     struct Resolution {
         bool filled;
         address solver;
@@ -40,24 +43,17 @@ contract CrossChainIntent {
 
     // ─── State ───────────────────────────────────────────────────────────
 
-    /// @notice Contract owner
     address public owner;
-
-    /// @notice Auto-incrementing order ID
     uint256 public nextOrderId = 1;
 
-    /// @notice Order storage by ID
     mapping(uint256 => CrossChainOrder) public orders;
-
-    /// @notice Resolution storage by order ID
     mapping(uint256 => Resolution) public resolutions;
-
-    /// @notice Track used nonces per user
     mapping(address => mapping(uint256 => bool)) public usedNonces;
+    /// @notice Track whether an order has been cancelled
+    mapping(uint256 => bool) public cancelled;
 
     // ─── Events ──────────────────────────────────────────────────────────
 
-    /// @notice Emitted when a cross-chain order is opened
     event Open(
         uint256 indexed orderId,
         address indexed user,
@@ -70,11 +66,9 @@ contract CrossChainIntent {
         uint256 deadline
     );
 
-    /// @notice Emitted when a solver fills an order
     event Fill(uint256 indexed orderId, address indexed solver, uint256 destinationAmount);
-
-    /// @notice Emitted when resolution data is queried/confirmed
     event Resolve(uint256 indexed orderId, address indexed solver, uint256 destinationAmount);
+    event Cancel(uint256 indexed orderId, address indexed user);
 
     // ─── Errors ──────────────────────────────────────────────────────────
 
@@ -86,6 +80,8 @@ contract CrossChainIntent {
     error InsufficientFillAmount();
     error OrderNotFilled();
     error ZeroAmount();
+    error OrderNotExpired();
+    error OrderAlreadyCancelled();
 
     // ─── Modifiers ───────────────────────────────────────────────────────
 
@@ -102,9 +98,7 @@ contract CrossChainIntent {
 
     // ─── External Functions ──────────────────────────────────────────────
 
-    /// @notice Open a new cross-chain order
-    /// @param order The cross-chain order data
-    /// @return orderId The ID assigned to this order
+    /// @notice Open a new cross-chain order, escrowing origin tokens
     function open(CrossChainOrder calldata order) external returns (uint256 orderId) {
         if (order.originAmount == 0) revert ZeroAmount();
         if (block.timestamp > order.deadline) revert OrderExpired();
@@ -127,6 +121,9 @@ contract CrossChainIntent {
             orderData: order.orderData
         });
 
+        // Escrow origin tokens from the user
+        IERC20(order.originToken).safeTransferFrom(order.user, address(this), order.originAmount);
+
         emit Open(
             orderId,
             order.user,
@@ -140,13 +137,12 @@ contract CrossChainIntent {
         );
     }
 
-    /// @notice Fill an order (solver submits fill proof)
-    /// @param orderId The order to fill
-    /// @param fillData The fill data from the solver
+    /// @notice Fill an order — solver provides destination tokens to the user
     function fill(uint256 orderId, FillData calldata fillData) external {
         CrossChainOrder storage order = orders[orderId];
         if (order.originAmount == 0) revert OrderNotFound();
         if (block.timestamp > order.deadline) revert OrderExpired();
+        if (cancelled[orderId]) revert OrderAlreadyCancelled();
 
         Resolution storage res = resolutions[orderId];
         if (res.filled) revert OrderAlreadyFilled();
@@ -160,12 +156,37 @@ contract CrossChainIntent {
         res.destinationAmount = fillData.destinationAmount;
         res.filledTimestamp = block.timestamp;
 
+        // Solver provides destination tokens to the user
+        IERC20(order.destinationToken).safeTransferFrom(
+            msg.sender, order.user, fillData.destinationAmount
+        );
+
+        // Release escrowed origin tokens to the solver
+        IERC20(order.originToken).safeTransfer(fillData.solver, order.originAmount);
+
         emit Fill(orderId, fillData.solver, fillData.destinationAmount);
     }
 
+    /// @notice Cancel an unfilled order after deadline and return escrowed tokens
+    function cancel(uint256 orderId) external {
+        CrossChainOrder storage order = orders[orderId];
+        if (order.originAmount == 0) revert OrderNotFound();
+        if (order.user != msg.sender) revert Unauthorized();
+        if (block.timestamp <= order.deadline) revert OrderNotExpired();
+        if (cancelled[orderId]) revert OrderAlreadyCancelled();
+
+        Resolution storage res = resolutions[orderId];
+        if (res.filled) revert OrderAlreadyFilled();
+
+        cancelled[orderId] = true;
+
+        // Return escrowed tokens to the user
+        IERC20(order.originToken).safeTransfer(order.user, order.originAmount);
+
+        emit Cancel(orderId, order.user);
+    }
+
     /// @notice Get resolution data for an order
-    /// @param orderId The order to resolve
-    /// @return res The resolution data
     function resolve(uint256 orderId) external returns (Resolution memory res) {
         res = resolutions[orderId];
         if (!res.filled) revert OrderNotFilled();
@@ -175,16 +196,10 @@ contract CrossChainIntent {
 
     // ─── View Functions ──────────────────────────────────────────────────
 
-    /// @notice Get order details
-    /// @param orderId The order ID
-    /// @return The cross-chain order data
     function getOrder(uint256 orderId) external view returns (CrossChainOrder memory) {
         return orders[orderId];
     }
 
-    /// @notice Get resolution details
-    /// @param orderId The order ID
-    /// @return The resolution data
     function getResolution(uint256 orderId) external view returns (Resolution memory) {
         return resolutions[orderId];
     }

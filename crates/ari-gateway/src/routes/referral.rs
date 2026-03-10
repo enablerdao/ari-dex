@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -59,53 +60,56 @@ fn gen_referral_code() -> String {
 async fn register_referral(
     State(state): State<Arc<AppState>>,
     Json(body): Json<RegisterReferralRequest>,
-) -> Result<(StatusCode, Json<RegisterReferralResponse>), StatusCode> {
+) -> impl IntoResponse {
     let code = gen_referral_code();
     let now = now_secs();
 
-    let conn = state.db.lock().unwrap();
-    conn.execute(
+    let conn = state.db.lock().await;
+    if let Err(e) = conn.execute(
         "INSERT INTO referrals (code, owner, referred_count, total_volume, created_at) VALUES (?1, ?2, 0, '0', ?3)",
         rusqlite::params![code, body.owner, now],
-    )
-    .map_err(|e| {
+    ) {
         tracing::error!("Failed to register referral: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "internal error"})),
+        )
+            .into_response();
+    }
 
-    Ok((
+    (
         StatusCode::CREATED,
-        Json(RegisterReferralResponse {
-            code,
-            owner: body.owner,
-        }),
-    ))
+        Json(serde_json::json!({
+            "code": code,
+            "owner": body.owner,
+        })),
+    )
+        .into_response()
 }
 
 /// GET /v1/referral/:code — get referral stats.
 async fn get_referral_stats(
     State(state): State<Arc<AppState>>,
     Path(code): Path<String>,
-) -> Result<Json<ReferralStats>, StatusCode> {
-    let conn = state.db.lock().unwrap();
+) -> impl IntoResponse {
+    let conn = state.db.lock().await;
 
-    let stats = conn
-        .query_row(
-            "SELECT code, owner, referred_count, total_volume, created_at FROM referrals WHERE code = ?1",
-            rusqlite::params![code],
-            |row| {
-                Ok(ReferralStats {
-                    code: row.get(0)?,
-                    owner: row.get(1)?,
-                    referred_count: row.get(2)?,
-                    total_volume: row.get(3)?,
-                    created_at: row.get(4)?,
-                })
-            },
-        )
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-
-    Ok(Json(stats))
+    match conn.query_row(
+        "SELECT code, owner, referred_count, total_volume, created_at FROM referrals WHERE code = ?1",
+        rusqlite::params![code],
+        |row| {
+            Ok(ReferralStats {
+                code: row.get(0)?,
+                owner: row.get(1)?,
+                referred_count: row.get(2)?,
+                total_volume: row.get(3)?,
+                created_at: row.get(4)?,
+            })
+        },
+    ) {
+        Ok(stats) => Json(stats).into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 /// Track a referral code when an intent is submitted.

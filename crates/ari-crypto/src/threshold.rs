@@ -20,12 +20,13 @@ pub struct KeyShare {
     pub data: Vec<u8>,
 }
 
-/// A threshold key set: one public key (= the raw AES key for encryption)
-/// and `n` shares.
+/// A threshold key set: the encryption key and `n` shares.
 #[derive(Debug, Clone)]
 pub struct ThresholdKeySet {
-    /// The symmetric key used for encryption (32 bytes, AES-256).
-    pub public_key: Vec<u8>,
+    /// WARNING: This is a symmetric encryption key, NOT a public key.
+    /// It must NEVER be shared publicly. In production, use asymmetric
+    /// threshold encryption (e.g., BLS-based threshold decryption).
+    pub encryption_key: Vec<u8>,
     /// The generated key shares.
     pub shares: Vec<KeyShare>,
     /// Minimum shares required to reconstruct.
@@ -68,16 +69,16 @@ impl ThresholdKeySet {
         let shares = shamir_split(&key, threshold, total_nodes);
 
         Self {
-            public_key: key,
+            encryption_key: key,
             shares,
             threshold,
         }
     }
 }
 
-/// Encrypt plaintext using the public key (AES-256-GCM).
-pub fn encrypt(plaintext: &[u8], public_key: &[u8]) -> Ciphertext {
-    let key = aes_gcm::Key::<Aes256Gcm>::from_slice(public_key);
+/// Encrypt plaintext using the encryption key (AES-256-GCM).
+pub fn encrypt(plaintext: &[u8], encryption_key: &[u8]) -> Ciphertext {
+    let key = aes_gcm::Key::<Aes256Gcm>::from_slice(encryption_key);
     let cipher = Aes256Gcm::new(key);
 
     let mut nonce_bytes = [0u8; 12];
@@ -265,7 +266,7 @@ mod tests {
         assert_eq!(ks.shares.len(), 5);
 
         let plaintext = b"hello encrypted mempool";
-        let ct = encrypt(plaintext, &ks.public_key);
+        let ct = encrypt(plaintext, &ks.encryption_key);
 
         // Create decryption shares from the first 3 key shares.
         let dec_shares: Vec<DecryptionShare> = ks.shares[..3]
@@ -282,7 +283,7 @@ mod tests {
     fn test_insufficient_shares() {
         let ks = ThresholdKeySet::generate(3, 5);
         let plaintext = b"secret data";
-        let ct = encrypt(plaintext, &ks.public_key);
+        let ct = encrypt(plaintext, &ks.encryption_key);
 
         let dec_shares: Vec<DecryptionShare> = ks.shares[..2]
             .iter()

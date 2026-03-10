@@ -14,13 +14,46 @@ contract SettlementTest is Test {
     address public guardian = makeAddr("guardian");
     address public verifier = makeAddr("verifier");
     address public permit2 = makeAddr("permit2");
-    address public alice = makeAddr("alice");
+    uint256 public aliceKey = 0xa11ce;
+    address public alice;
     address public solver = makeAddr("solver");
 
     function setUp() public {
+        alice = vm.addr(aliceKey);
         settlement = new Settlement(permit2, verifier, guardian);
         tokenA = new MockERC20("Token A", "TKNA");
         tokenB = new MockERC20("Token B", "TKNB");
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────
+
+    function _signIntent(
+        address sender,
+        address sellToken,
+        uint256 sellAmount,
+        address buyToken,
+        uint256 minBuyAmount,
+        uint256 deadline,
+        uint256 nonce,
+        uint256 privateKey
+    ) internal view returns (bytes memory) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                settlement.INTENT_TYPEHASH(),
+                sender,
+                sellToken,
+                sellAmount,
+                buyToken,
+                minBuyAmount,
+                deadline,
+                nonce
+            )
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", settlement.DOMAIN_SEPARATOR(), structHash)
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        return abi.encodePacked(r, s, v);
     }
 
     // ─── Deployment Tests ───────────────────────────────────────────────
@@ -36,39 +69,44 @@ contract SettlementTest is Test {
     // ─── Settle Tests ───────────────────────────────────────────────────
 
     function test_settle_simple_trade() public {
-        // Mint tokens to participants
         tokenA.mint(alice, 1000e18);
         tokenB.mint(solver, 500e18);
 
-        // Alice approves settlement to spend her tokenA
         vm.prank(alice);
         tokenA.approve(address(settlement), 1000e18);
 
-        // Solver approves settlement to spend their tokenB
         vm.prank(solver);
         tokenB.approve(address(settlement), 500e18);
 
-        // Build intent and solution
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = 1;
+
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 1000e18,
+            address(tokenB), 400e18,
+            deadline, nonce, aliceKey
+        );
+
         Settlement.Intent memory intent = Settlement.Intent({
             sender: alice,
             sellToken: address(tokenA),
             sellAmount: 1000e18,
             buyToken: address(tokenB),
             minBuyAmount: 400e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 1
+            deadline: deadline,
+            nonce: nonce,
+            signature: sig
         });
 
-        bytes32 intentHash = keccak256(
+        bytes32 structHash = keccak256(
             abi.encode(
-                intent.sender,
-                intent.sellToken,
-                intent.sellAmount,
-                intent.buyToken,
-                intent.minBuyAmount,
-                intent.deadline,
-                intent.nonce
+                settlement.INTENT_TYPEHASH(),
+                intent.sender, intent.sellToken, intent.sellAmount,
+                intent.buyToken, intent.minBuyAmount, intent.deadline, intent.nonce
             )
+        );
+        bytes32 intentHash = keccak256(
+            abi.encodePacked("\x19\x01", settlement.DOMAIN_SEPARATOR(), structHash)
         );
 
         Settlement.Solution memory solution = Settlement.Solution({
@@ -78,10 +116,8 @@ contract SettlementTest is Test {
             route: ""
         });
 
-        // Settle
         settlement.settle(intent, solution, "");
 
-        // Verify balances
         assertEq(tokenA.balanceOf(alice), 0);
         assertEq(tokenA.balanceOf(solver), 1000e18);
         assertEq(tokenB.balanceOf(solver), 0);
@@ -89,14 +125,21 @@ contract SettlementTest is Test {
     }
 
     function test_settle_reverts_expired_intent() public {
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 50e18,
+            block.timestamp - 1, 1, aliceKey
+        );
+
         Settlement.Intent memory intent = Settlement.Intent({
             sender: alice,
             sellToken: address(tokenA),
             sellAmount: 100e18,
             buyToken: address(tokenB),
             minBuyAmount: 50e18,
-            deadline: block.timestamp - 1, // already expired
-            nonce: 1
+            deadline: block.timestamp - 1,
+            nonce: 1,
+            signature: sig
         });
 
         Settlement.Solution memory solution = Settlement.Solution({
@@ -111,7 +154,6 @@ contract SettlementTest is Test {
     }
 
     function test_settle_reverts_nonce_reuse() public {
-        // Setup balances and approvals
         tokenA.mint(alice, 2000e18);
         tokenB.mint(solver, 1000e18);
         vm.prank(alice);
@@ -119,21 +161,35 @@ contract SettlementTest is Test {
         vm.prank(solver);
         tokenB.approve(address(settlement), type(uint256).max);
 
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 nonce = 42;
+
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 50e18,
+            deadline, nonce, aliceKey
+        );
+
         Settlement.Intent memory intent = Settlement.Intent({
             sender: alice,
             sellToken: address(tokenA),
             sellAmount: 100e18,
             buyToken: address(tokenB),
             minBuyAmount: 50e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 42
+            deadline: deadline,
+            nonce: nonce,
+            signature: sig
         });
 
-        bytes32 intentHash = keccak256(
+        bytes32 structHash = keccak256(
             abi.encode(
+                settlement.INTENT_TYPEHASH(),
                 intent.sender, intent.sellToken, intent.sellAmount,
                 intent.buyToken, intent.minBuyAmount, intent.deadline, intent.nonce
             )
+        );
+        bytes32 intentHash = keccak256(
+            abi.encodePacked("\x19\x01", settlement.DOMAIN_SEPARATOR(), structHash)
         );
 
         Settlement.Solution memory solution = Settlement.Solution({
@@ -143,29 +199,35 @@ contract SettlementTest is Test {
             route: ""
         });
 
-        // First settle succeeds
         settlement.settle(intent, solution, "");
 
-        // Second settle with same nonce reverts
         vm.expectRevert(Settlement.NonceAlreadyUsed.selector);
         settlement.settle(intent, solution, "");
     }
 
     function test_settle_reverts_insufficient_buy_amount() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 100e18,
+            deadline, 1, aliceKey
+        );
+
         Settlement.Intent memory intent = Settlement.Intent({
             sender: alice,
             sellToken: address(tokenA),
             sellAmount: 100e18,
             buyToken: address(tokenB),
             minBuyAmount: 100e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 1
+            deadline: deadline,
+            nonce: 1,
+            signature: sig
         });
 
         Settlement.Solution memory solution = Settlement.Solution({
             intentHash: bytes32(0),
             solver: solver,
-            buyAmount: 50e18, // less than minBuyAmount
+            buyAmount: 50e18,
             route: ""
         });
 
@@ -173,10 +235,43 @@ contract SettlementTest is Test {
         settlement.settle(intent, solution, "");
     }
 
+    function test_settle_reverts_invalid_signature() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        // Sign with wrong key
+        uint256 wrongKey = 0xdead;
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 50e18,
+            deadline, 1, wrongKey
+        );
+
+        Settlement.Intent memory intent = Settlement.Intent({
+            sender: alice,
+            sellToken: address(tokenA),
+            sellAmount: 100e18,
+            buyToken: address(tokenB),
+            minBuyAmount: 50e18,
+            deadline: deadline,
+            nonce: 1,
+            signature: sig
+        });
+
+        Settlement.Solution memory solution = Settlement.Solution({
+            intentHash: bytes32(0),
+            solver: solver,
+            buyAmount: 50e18,
+            route: ""
+        });
+
+        vm.expectRevert(Settlement.InvalidSignature.selector);
+        settlement.settle(intent, solution, "");
+    }
+
     // ─── Batch Settle Tests ─────────────────────────────────────────────
 
     function test_settleBatch_two_intents() public {
-        address alice2 = makeAddr("alice2");
+        uint256 alice2Key = 0xa11c2;
+        address alice2 = vm.addr(alice2Key);
 
         tokenA.mint(alice, 100e18);
         tokenA.mint(alice2, 200e18);
@@ -189,6 +284,17 @@ contract SettlementTest is Test {
         vm.prank(solver);
         tokenB.approve(address(settlement), type(uint256).max);
 
+        uint256 deadline = block.timestamp + 1 hours;
+
+        bytes memory sig1 = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 80e18, deadline, 1, aliceKey
+        );
+        bytes memory sig2 = _signIntent(
+            alice2, address(tokenA), 200e18,
+            address(tokenB), 150e18, deadline, 1, alice2Key
+        );
+
         Settlement.Intent[] memory intents = new Settlement.Intent[](2);
         intents[0] = Settlement.Intent({
             sender: alice,
@@ -196,8 +302,9 @@ contract SettlementTest is Test {
             sellAmount: 100e18,
             buyToken: address(tokenB),
             minBuyAmount: 80e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 1
+            deadline: deadline,
+            nonce: 1,
+            signature: sig1
         });
         intents[1] = Settlement.Intent({
             sender: alice2,
@@ -205,8 +312,9 @@ contract SettlementTest is Test {
             sellAmount: 200e18,
             buyToken: address(tokenB),
             minBuyAmount: 150e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 1
+            deadline: deadline,
+            nonce: 1,
+            signature: sig2
         });
 
         Settlement.Solution[] memory solutions = new Settlement.Solution[](2);
@@ -264,14 +372,22 @@ contract SettlementTest is Test {
         vm.prank(guardian);
         settlement.pause();
 
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _signIntent(
+            alice, address(tokenA), 100e18,
+            address(tokenB), 50e18,
+            deadline, 1, aliceKey
+        );
+
         Settlement.Intent memory intent = Settlement.Intent({
             sender: alice,
             sellToken: address(tokenA),
             sellAmount: 100e18,
             buyToken: address(tokenB),
             minBuyAmount: 50e18,
-            deadline: block.timestamp + 1 hours,
-            nonce: 1
+            deadline: deadline,
+            nonce: 1,
+            signature: sig
         });
 
         Settlement.Solution memory solution = Settlement.Solution({

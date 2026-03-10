@@ -21,14 +21,10 @@ contract PerpetualMarketTest is Test {
         usdc = new MockERC20("USD Coin", "USDC");
         market = new PerpetualMarket(address(usdc), INITIAL_PRICE);
 
-        // Fund traders
         usdc.mint(trader, USDC_AMOUNT);
         usdc.mint(trader2, USDC_AMOUNT);
-
-        // Fund the market contract so it can pay out profits
         usdc.mint(address(market), 100_000e18);
 
-        // Approve market
         vm.prank(trader);
         usdc.approve(address(market), type(uint256).max);
 
@@ -85,7 +81,6 @@ contract PerpetualMarketTest is Test {
         vm.prank(trader);
         uint256 posId = market.openPosition(true, size, collateral, 10);
 
-        // Price goes up 10%: $2000 -> $2200
         market.setPrice(2200e6);
 
         uint256 balBefore = usdc.balanceOf(trader);
@@ -95,8 +90,6 @@ contract PerpetualMarketTest is Test {
 
         uint256 balAfter = usdc.balanceOf(trader);
 
-        // PnL = 1e18 * (2200e6 - 2000e6) / 1e6 = 200e18
-        // Payout = 1000e18 + 200e18 = 1200e18
         assertEq(balAfter - balBefore, 1200e18);
     }
 
@@ -107,7 +100,6 @@ contract PerpetualMarketTest is Test {
         vm.prank(trader);
         uint256 posId = market.openPosition(true, size, collateral, 10);
 
-        // Price goes down 10%: $2000 -> $1800
         market.setPrice(1800e6);
 
         uint256 balBefore = usdc.balanceOf(trader);
@@ -117,46 +109,43 @@ contract PerpetualMarketTest is Test {
 
         uint256 balAfter = usdc.balanceOf(trader);
 
-        // PnL = 1e18 * (1800e6 - 2000e6) / 1e6 = -200e18
-        // Payout = 1000e18 - 200e18 = 800e18
         assertEq(balAfter - balBefore, 800e18);
     }
 
     // ─── Liquidation Tests ──────────────────────────────────────────────
 
     function test_liquidation_belowThreshold() public {
-        uint256 size = 5e18;       // notional = 5 * 2000 = 10000
-        uint256 collateral = 1000e18; // 10x leverage
+        uint256 size = 5e18;
+        uint256 collateral = 1000e18;
 
         vm.prank(trader);
         uint256 posId = market.openPosition(true, size, collateral, 10);
 
-        // Price = 1850 => PnL = 5*(1850-2000) = -750, equity = 250
-        // notional = 5*1850 = 9250, margin = 250/9250 = 2.7% < 5%
+        // Set stored price to trigger liquidation
         market.setPrice(1850e6);
 
         uint256 insuranceBefore = market.insuranceFund();
 
         vm.prank(liquidator);
-        market.liquidate(posId, 1850e6);
+        market.liquidate(posId);
 
         (, , , bool isOpen) = _getMeta(posId);
         assertFalse(isOpen);
 
-        // Penalty = 1000e18 * 250 / 10000 = 25e18
         assertEq(market.insuranceFund() - insuranceBefore, 25e18);
     }
 
     function test_liquidation_revert_healthy() public {
         uint256 size = 1e18;
-        uint256 collateral = 1000e18; // 2x leverage
+        uint256 collateral = 1000e18;
 
         vm.prank(trader);
         uint256 posId = market.openPosition(true, size, collateral, 10);
 
+        // currentPrice is still INITIAL_PRICE, position is healthy
         vm.prank(liquidator);
         vm.expectRevert(PerpetualMarket.PositionHealthy.selector);
-        market.liquidate(posId, INITIAL_PRICE);
+        market.liquidate(posId);
     }
 
     // ─── Add Collateral Test ────────────────────────────────────────────
@@ -179,14 +168,12 @@ contract PerpetualMarketTest is Test {
     // ─── Max Leverage Test ──────────────────────────────────────────────
 
     function test_revert_exceedsMaxLeverage() public {
-        // maxLeverage=25 > MAX_LEVERAGE(20) => revert
         vm.prank(trader);
         vm.expectRevert(PerpetualMarket.ExceedsMaxLeverage.selector);
         market.openPosition(true, 1e18, 50e18, 25);
     }
 
     function test_revert_exceedsMaxLeverage_actualLeverage() public {
-        // maxLeverage=10, actual leverage = 2000/150 = 13.3x > 10 => revert
         vm.prank(trader);
         vm.expectRevert(PerpetualMarket.ExceedsMaxLeverage.selector);
         market.openPosition(true, 1e18, 150e18, 10);
@@ -195,15 +182,12 @@ contract PerpetualMarketTest is Test {
     // ─── Funding Rate Test ──────────────────────────────────────────────
 
     function test_fundingRate() public {
-        // No positions => 0
         assertEq(market.getFundingRate(), 0);
 
-        // Open a long — all OI is long => max positive rate
         vm.prank(trader);
         market.openPosition(true, 1e18, 1000e18, 10);
-        assertEq(market.getFundingRate(), 100); // 1%
+        assertEq(market.getFundingRate(), 100);
 
-        // Open equal short — balanced => 0
         vm.prank(trader2);
         market.openPosition(false, 1e18, 1000e18, 10);
         assertEq(market.getFundingRate(), 0);
@@ -223,9 +207,8 @@ contract PerpetualMarketTest is Test {
         assertEq(market.insuranceFund(), 0);
 
         vm.prank(liquidator);
-        market.liquidate(posId, 1850e6);
+        market.liquidate(posId);
 
-        // Penalty = 1000e18 * 2.5% = 25e18
         assertEq(market.insuranceFund(), 25e18);
     }
 

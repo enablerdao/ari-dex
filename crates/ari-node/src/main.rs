@@ -23,7 +23,7 @@ async fn main() {
     let engine = EngineState::new();
     info!("Engine state initialized");
 
-    // Build the HTTP router.
+    // Build the HTTP router (includes rate limiting via concurrency limit).
     let app = build_router(engine);
 
     // Bind and serve.

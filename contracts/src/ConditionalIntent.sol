@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC20} from "./interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 
 /// @title ConditionalIntent
 /// @notice Manages conditional orders: limit, stop-loss, take-profit, and DCA.
 ///         Tokens are held in escrow and released when trigger conditions are met.
+///         Uses an oracle for price data instead of trusting the caller.
 contract ConditionalIntent {
+    using SafeERC20 for IERC20;
+
     // ─── Enums ──────────────────────────────────────────────────────────
 
     enum OrderType { Limit, StopLoss, TakeProfit, DCA }
@@ -43,6 +48,9 @@ contract ConditionalIntent {
     /// @notice Owner => list of order IDs
     mapping(address => uint256[]) private _userOrders;
 
+    /// @notice Price oracle for fetching current prices
+    IPriceOracle public immutable oracle;
+
     // ─── Events ─────────────────────────────────────────────────────────
 
     event OrderCreated(
@@ -78,9 +86,14 @@ contract ConditionalIntent {
     error DCAFullyExecuted();
     error NotDCAOrder();
 
+    // ─── Constructor ────────────────────────────────────────────────────
+
+    constructor(address _oracle) {
+        oracle = IPriceOracle(_oracle);
+    }
+
     // ─── External: Order Creation ───────────────────────────────────────
 
-    /// @notice Create a limit order — buy when price <= trigger
     function createLimitOrder(
         address sellToken,
         address buyToken,
@@ -97,10 +110,9 @@ contract ConditionalIntent {
             triggerPrice, OrderType.Limit, deadline
         ));
 
-        IERC20(sellToken).transferFrom(msg.sender, address(this), sellAmount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), sellAmount);
     }
 
-    /// @notice Create a stop-loss order — sell when price <= trigger
     function createStopLoss(
         address sellToken,
         address buyToken,
@@ -117,10 +129,9 @@ contract ConditionalIntent {
             triggerPrice, OrderType.StopLoss, deadline
         ));
 
-        IERC20(sellToken).transferFrom(msg.sender, address(this), sellAmount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), sellAmount);
     }
 
-    /// @notice Create a take-profit order — sell when price >= trigger
     function createTakeProfit(
         address sellToken,
         address buyToken,
@@ -137,13 +148,9 @@ contract ConditionalIntent {
             triggerPrice, OrderType.TakeProfit, deadline
         ));
 
-        IERC20(sellToken).transferFrom(msg.sender, address(this), sellAmount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), sellAmount);
     }
 
-    /// @notice Create a DCA order — periodic buys over time
-    /// @param totalAmount Total amount of sellToken to spend across all tranches
-    /// @param amountPerExecution Amount of sellToken per tranche
-    /// @param intervalSeconds Minimum seconds between executions
     function createDCA(
         address sellToken,
         address buyToken,
@@ -163,46 +170,44 @@ contract ConditionalIntent {
         order.intervalSeconds = intervalSeconds;
         orderId = _createOrder(order);
 
-        IERC20(sellToken).transferFrom(msg.sender, address(this), totalAmount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), totalAmount);
     }
 
     // ─── External: Execution ────────────────────────────────────────────
 
     /// @notice Execute a non-DCA conditional order when trigger conditions are met
     /// @param orderId The order to execute
-    /// @param currentPrice Current market price (6 decimals)
-    function executeOrder(uint256 orderId, uint256 currentPrice) external {
+    function executeOrder(uint256 orderId) external {
         ConditionalOrder storage order = orders[orderId];
 
         if (order.status != OrderStatus.Active) revert OrderNotActive();
         if (block.timestamp > order.deadline) revert OrderExpired();
 
+        // Get price from oracle instead of trusting the caller
+        uint256 currentPrice = oracle.getPrice(order.sellToken);
+
         // Validate trigger condition based on order type
         if (order.orderType == OrderType.Limit) {
-            // Limit: buy when price <= trigger (asset is cheap enough)
             if (currentPrice > order.triggerPrice) revert TriggerNotMet();
         } else if (order.orderType == OrderType.StopLoss) {
-            // StopLoss: sell when price <= trigger (price dropped to stop level)
             if (currentPrice > order.triggerPrice) revert TriggerNotMet();
         } else if (order.orderType == OrderType.TakeProfit) {
-            // TakeProfit: sell when price >= trigger (price rose to target)
             if (currentPrice < order.triggerPrice) revert TriggerNotMet();
         } else {
-            revert NotDCAOrder(); // DCA orders use executeDCA
+            revert NotDCAOrder();
         }
 
         order.status = OrderStatus.Executed;
 
         // Transfer escrowed sellToken to msg.sender (keeper/solver)
-        IERC20(order.sellToken).transfer(msg.sender, order.sellAmount);
+        IERC20(order.sellToken).safeTransfer(msg.sender, order.sellAmount);
 
         emit OrderExecuted(orderId, order.owner, order.sellAmount, currentPrice);
     }
 
     /// @notice Execute one DCA tranche
     /// @param orderId The DCA order to execute
-    /// @param currentPrice Current market price (informational, no trigger check for DCA)
-    function executeDCA(uint256 orderId, uint256 currentPrice) external {
+    function executeDCA(uint256 orderId) external {
         ConditionalOrder storage order = orders[orderId];
 
         if (order.status != OrderStatus.Active) revert OrderNotActive();
@@ -218,7 +223,7 @@ contract ConditionalIntent {
             revert DCAIntervalNotElapsed();
         }
 
-        // Determine tranche size (min of sellAmount-per-execution and remaining)
+        // Determine tranche size
         uint256 tranche = order.sellAmount;
         if (tranche > remaining) {
             tranche = remaining;
@@ -232,15 +237,22 @@ contract ConditionalIntent {
             order.status = OrderStatus.Executed;
         }
 
+        // Get current price from oracle for informational event
+        uint256 currentPrice;
+        try oracle.getPrice(order.sellToken) returns (uint256 p) {
+            currentPrice = p;
+        } catch {
+            currentPrice = 0;
+        }
+
         // Transfer tranche to keeper/solver
-        IERC20(order.sellToken).transfer(msg.sender, tranche);
+        IERC20(order.sellToken).safeTransfer(msg.sender, tranche);
 
         emit OrderExecuted(orderId, order.owner, tranche, currentPrice);
     }
 
     // ─── External: Cancellation ─────────────────────────────────────────
 
-    /// @notice Cancel an active order and refund escrowed tokens
     function cancelOrder(uint256 orderId) external {
         ConditionalOrder storage order = orders[orderId];
 
@@ -258,7 +270,7 @@ contract ConditionalIntent {
         }
 
         if (refund > 0) {
-            IERC20(order.sellToken).transfer(order.owner, refund);
+            IERC20(order.sellToken).safeTransfer(order.owner, refund);
         }
 
         emit OrderCancelled(orderId, order.owner);
@@ -266,24 +278,20 @@ contract ConditionalIntent {
 
     // ─── External: Views ────────────────────────────────────────────────
 
-    /// @notice Get full order details
     function getOrder(uint256 orderId) external view returns (ConditionalOrder memory) {
         return orders[orderId];
     }
 
-    /// @notice Get all active order IDs for an owner
-    function getActiveOrders(address owner) external view returns (uint256[] memory) {
-        uint256[] storage allIds = _userOrders[owner];
+    function getActiveOrders(address _owner) external view returns (uint256[] memory) {
+        uint256[] storage allIds = _userOrders[_owner];
         uint256 count;
 
-        // First pass: count active orders
         for (uint256 i; i < allIds.length; ++i) {
             if (orders[allIds[i]].status == OrderStatus.Active) {
                 ++count;
             }
         }
 
-        // Second pass: collect active order IDs
         uint256[] memory activeIds = new uint256[](count);
         uint256 idx;
         for (uint256 i; i < allIds.length; ++i) {

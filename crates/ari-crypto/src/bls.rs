@@ -1,3 +1,7 @@
+//! WARNING: This is a PLACEHOLDER implementation for development only.
+//! DO NOT use in production. The signature verification is NOT secure.
+//! Replace with the `blst` crate for real BLS signatures.
+//!
 //! BLS-like signature scheme for validator coordination.
 //!
 //! This is a simplified placeholder that uses HMAC-SHA256 for signing and

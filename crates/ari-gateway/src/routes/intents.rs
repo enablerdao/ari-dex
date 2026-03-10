@@ -4,12 +4,14 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::app::{AppState, StoredIntent};
 use crate::db;
+use crate::validation;
 use crate::ws;
 
 #[derive(Deserialize)]
@@ -28,16 +30,26 @@ struct SubmitIntentRequest {
     referral_code: Option<String>,
 }
 
-#[derive(Serialize)]
-struct SubmitIntentResponse {
-    intent_id: String,
-    status: String,
-}
-
 async fn submit_intent(
     State(state): State<Arc<AppState>>,
     Json(body): Json<SubmitIntentRequest>,
-) -> (StatusCode, Json<SubmitIntentResponse>) {
+) -> impl IntoResponse {
+    // Validate amounts before processing.
+    if let Err(e) = validation::validate_amount(&body.sell_amount) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("invalid sell_amount: {e}")})),
+        )
+            .into_response();
+    }
+    if let Err(e) = validation::validate_amount(&body.min_buy_amount) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("invalid min_buy_amount: {e}")})),
+        )
+            .into_response();
+    }
+
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -64,16 +76,14 @@ async fn submit_intent(
     };
 
     {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db.lock().await;
         if let Err(e) = db::insert_intent(&conn, &stored, referral_code.as_deref()) {
             tracing::error!("Failed to insert intent: {e}");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(SubmitIntentResponse {
-                    intent_id: String::new(),
-                    status: "error".to_string(),
-                }),
-            );
+                Json(serde_json::json!({"error": "internal error"})),
+            )
+                .into_response();
         }
         // Track referral if a code was provided.
         if let Some(ref code) = referral_code {
@@ -86,24 +96,29 @@ async fn submit_intent(
 
     (
         StatusCode::CREATED,
-        Json(SubmitIntentResponse {
-            intent_id,
-            status: "pending".to_string(),
-        }),
+        Json(serde_json::json!({
+            "intent_id": intent_id,
+            "status": "pending",
+        })),
     )
+        .into_response()
 }
 
 async fn get_intent(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> Result<Json<StoredIntent>, StatusCode> {
-    let conn = state.db.lock().unwrap();
+) -> impl IntoResponse {
+    let conn = state.db.lock().await;
     match db::get_intent(&conn, &id) {
-        Ok(Some(intent)) => Ok(Json(intent)),
-        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Ok(Some(intent)) => Json(serde_json::to_value(intent).unwrap()).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => {
             tracing::error!("Failed to get intent: {e}");
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "internal error"})),
+            )
+                .into_response()
         }
     }
 }

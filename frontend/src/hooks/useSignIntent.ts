@@ -1,5 +1,6 @@
 import { useSignTypedData, useChainId } from "wagmi";
 import { useCallback } from "react";
+import { parseUnits } from "viem";
 import { CONTRACTS, INTENT_EXPIRY_SECONDS } from "../config";
 import type { Token } from "../types";
 
@@ -9,7 +10,7 @@ function getDomain(chainId: number) {
     name: "ARI Exchange",
     version: "1",
     chainId: BigInt(chainId),
-    verifyingContract: CONTRACTS.settlement as `0x${string}`,
+    verifyingContract: CONTRACTS.settlement,
   } as const;
 }
 
@@ -35,21 +36,26 @@ export interface SignIntentParams {
   nonce?: number;
 }
 
+export interface SignIntentResult {
+  signature: string;
+  deadline: string;
+  nonce: string;
+}
+
 export function useSignIntent() {
   const chainId = useChainId();
   const { signTypedDataAsync, isPending } = useSignTypedData();
 
   const signIntent = useCallback(
-    async (params: SignIntentParams): Promise<string> => {
+    async (params: SignIntentParams): Promise<SignIntentResult> => {
+      if (CONTRACTS.settlement === "0x0000000000000000000000000000000000000000") {
+        console.warn("Settlement contract is zero address — signature may be invalid on-chain");
+      }
+
       const deadline = BigInt(Math.floor(Date.now() / 1000) + INTENT_EXPIRY_SECONDS);
       const nonce = BigInt(params.nonce ?? Date.now());
 
-      const rawSellAmount = BigInt(
-        Math.floor(
-          parseFloat(params.sellAmount || "0") *
-            10 ** params.sellToken.decimals,
-        ),
-      );
+      const rawSellAmount = parseUnits(params.sellAmount || "0", params.sellToken.decimals);
 
       const signature = await signTypedDataAsync({
         domain: getDomain(chainId),
@@ -66,7 +72,11 @@ export function useSignIntent() {
         },
       });
 
-      return signature;
+      return {
+        signature,
+        deadline: deadline.toString(),
+        nonce: nonce.toString(),
+      };
     },
     [chainId, signTypedDataAsync],
   );

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -96,12 +97,12 @@ fn gen_id(prefix: &str) -> String {
 async fn create_rfq(
     State(state): State<Arc<AppState>>,
     Json(body): Json<CreateRfqRequest>,
-) -> (StatusCode, Json<CreateRfqResponse>) {
+) -> impl IntoResponse {
     let now = now_secs();
     let expires = now + 300; // 5 minutes
     let rfq_id = gen_id("rfq");
 
-    let conn = state.db.lock().unwrap();
+    let conn = state.db.lock().await;
     let res = conn.execute(
         "INSERT INTO rfqs (id, requester, sell_token, buy_token, sell_amount, status, created_at, expires_at)
          VALUES (?1, ?2, ?3, ?4, ?5, 'open', ?6, ?7)",
@@ -112,30 +113,28 @@ async fn create_rfq(
         tracing::error!("Failed to create RFQ: {e}");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CreateRfqResponse {
-                rfq_id: String::new(),
-                status: "error".into(),
-                expires_at: 0,
-            }),
-        );
+            Json(serde_json::json!({"error": "internal error"})),
+        )
+            .into_response();
     }
 
     (
         StatusCode::CREATED,
-        Json(CreateRfqResponse {
-            rfq_id,
-            status: "open".into(),
-            expires_at: expires,
-        }),
+        Json(serde_json::json!({
+            "rfq_id": rfq_id,
+            "status": "open",
+            "expires_at": expires,
+        })),
     )
+        .into_response()
 }
 
 /// GET /v1/rfq/:id — get RFQ status and quotes.
 async fn get_rfq(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> Result<Json<RfqDetail>, StatusCode> {
-    let conn = state.db.lock().unwrap();
+) -> impl IntoResponse {
+    let conn = state.db.lock().await;
 
     let rfq = conn
         .query_row(
@@ -157,32 +156,36 @@ async fn get_rfq(
                     quotes: Vec::new(),
                 })
             },
-        )
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+        );
+
+    let rfq = match rfq {
+        Ok(r) => r,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
 
     // Fetch associated quotes.
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, rfq_id, quoter, buy_amount, created_at FROM rfq_quotes WHERE rfq_id = ?1 ORDER BY buy_amount DESC",
-        )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut stmt = match conn.prepare(
+        "SELECT id, rfq_id, quoter, buy_amount, created_at FROM rfq_quotes WHERE rfq_id = ?1 ORDER BY buy_amount DESC",
+    ) {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response(),
+    };
 
-    let quotes: Vec<RfqQuote> = stmt
-        .query_map(rusqlite::params![id], |row| {
-            Ok(RfqQuote {
-                id: row.get(0)?,
-                rfq_id: row.get(1)?,
-                quoter: row.get(2)?,
-                buy_amount: row.get(3)?,
-                created_at: row.get(4)?,
-            })
+    let quotes: Vec<RfqQuote> = match stmt.query_map(rusqlite::params![id], |row| {
+        Ok(RfqQuote {
+            id: row.get(0)?,
+            rfq_id: row.get(1)?,
+            quoter: row.get(2)?,
+            buy_amount: row.get(3)?,
+            created_at: row.get(4)?,
         })
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .filter_map(|r| r.ok())
-        .collect();
+    }) {
+        Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
+        Err(_) => Vec::new(),
+    };
 
     let detail = RfqDetail { quotes, ..rfq };
-    Ok(Json(detail))
+    Json(detail).into_response()
 }
 
 /// POST /v1/rfq/:id/quote — market maker submits a quote.
@@ -190,33 +193,33 @@ async fn submit_quote(
     State(state): State<Arc<AppState>>,
     Path(rfq_id): Path<String>,
     Json(body): Json<SubmitQuoteRequest>,
-) -> Result<(StatusCode, Json<SubmitQuoteResponse>), StatusCode> {
+) -> impl IntoResponse {
     let now = now_secs();
     let quote_id = gen_id("quote");
 
-    let conn = state.db.lock().unwrap();
+    let conn = state.db.lock().await;
 
     // Verify RFQ exists and is open.
-    let status: String = conn
-        .query_row(
-            "SELECT status FROM rfqs WHERE id = ?1",
-            rusqlite::params![rfq_id],
-            |row| row.get(0),
-        )
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let status: String = match conn.query_row(
+        "SELECT status FROM rfqs WHERE id = ?1",
+        rusqlite::params![rfq_id],
+        |row| row.get(0),
+    ) {
+        Ok(s) => s,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
 
     if status != "open" {
-        return Err(StatusCode::CONFLICT);
+        return StatusCode::CONFLICT.into_response();
     }
 
-    conn.execute(
+    if let Err(e) = conn.execute(
         "INSERT INTO rfq_quotes (id, rfq_id, quoter, buy_amount, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
         rusqlite::params![quote_id, rfq_id, body.quoter, body.buy_amount, now],
-    )
-    .map_err(|e| {
+    ) {
         tracing::error!("Failed to insert quote: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
 
     // Check if this is the new best quote (highest buy_amount).
     let current_best: Option<String> = conn
@@ -237,62 +240,71 @@ async fn submit_quote(
     };
 
     if is_best {
-        conn.execute(
+        if let Err(e) = conn.execute(
             "UPDATE rfqs SET best_quote = ?1, best_quoter = ?2 WHERE id = ?3",
             rusqlite::params![body.buy_amount, body.quoter, rfq_id],
-        )
-        .map_err(|e| {
+        ) {
             tracing::error!("Failed to update best quote: {e}");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+        }
     }
 
-    Ok((
+    (
         StatusCode::CREATED,
-        Json(SubmitQuoteResponse {
-            quote_id,
-            is_best,
-        }),
-    ))
+        Json(serde_json::json!({
+            "quote_id": quote_id,
+            "is_best": is_best,
+        })),
+    )
+        .into_response()
 }
 
 /// POST /v1/rfq/:id/accept — requester accepts the best quote.
 async fn accept_quote(
     State(state): State<Arc<AppState>>,
     Path(rfq_id): Path<String>,
-) -> Result<Json<AcceptQuoteResponse>, StatusCode> {
-    let conn = state.db.lock().unwrap();
+) -> impl IntoResponse {
+    let conn = state.db.lock().await;
 
-    let (status, best_quote, best_quoter): (String, Option<String>, Option<String>) = conn
-        .query_row(
-            "SELECT status, best_quote, best_quoter FROM rfqs WHERE id = ?1",
-            rusqlite::params![rfq_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let row: Result<(String, Option<String>, Option<String>), _> = conn.query_row(
+        "SELECT status, best_quote, best_quoter FROM rfqs WHERE id = ?1",
+        rusqlite::params![rfq_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    );
+
+    let (status, best_quote, best_quoter) = match row {
+        Ok(r) => r,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
 
     if status != "open" {
-        return Err(StatusCode::CONFLICT);
+        return StatusCode::CONFLICT.into_response();
     }
 
-    let quoter = best_quoter.ok_or(StatusCode::BAD_REQUEST)?;
-    let amount = best_quote.ok_or(StatusCode::BAD_REQUEST)?;
+    let quoter = match best_quoter {
+        Some(q) => q,
+        None => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let amount = match best_quote {
+        Some(a) => a,
+        None => return StatusCode::BAD_REQUEST.into_response(),
+    };
 
-    conn.execute(
+    if let Err(e) = conn.execute(
         "UPDATE rfqs SET status = 'accepted' WHERE id = ?1",
         rusqlite::params![rfq_id],
-    )
-    .map_err(|e| {
+    ) {
         tracing::error!("Failed to accept RFQ: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "internal error"}))).into_response();
+    }
 
-    Ok(Json(AcceptQuoteResponse {
-        rfq_id,
-        status: "accepted".into(),
-        accepted_quoter: quoter,
-        accepted_amount: amount,
+    Json(serde_json::json!({
+        "rfq_id": rfq_id,
+        "status": "accepted",
+        "accepted_quoter": quoter,
+        "accepted_amount": amount,
     }))
+    .into_response()
 }
 
 // ---------------------------------------------------------------------------

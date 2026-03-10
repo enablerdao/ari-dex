@@ -14,14 +14,14 @@ pub struct EncryptedIntent {
     pub ciphertext: Ciphertext,
 }
 
-/// Encrypt an intent using the threshold public key.
+/// Encrypt an intent using the threshold encryption key.
 ///
 /// The intent is serialised to JSON then encrypted with AES-256-GCM using
-/// the provided public key.
-pub fn encrypt_intent(intent: &Intent, public_key: &[u8]) -> EncryptedIntent {
+/// the provided encryption key.
+pub fn encrypt_intent(intent: &Intent, encryption_key: &[u8]) -> EncryptedIntent {
     let serialised =
         serde_json::to_vec(intent).expect("Intent serialisation should not fail");
-    let ciphertext = threshold::encrypt(&serialised, public_key);
+    let ciphertext = threshold::encrypt(&serialised, encryption_key);
     EncryptedIntent { ciphertext }
 }
 
@@ -95,7 +95,7 @@ mod tests {
         let intent = make_test_intent();
         let ks = ThresholdKeySet::generate(2, 3);
 
-        let encrypted = encrypt_intent(&intent, &ks.public_key);
+        let encrypted = encrypt_intent(&intent, &ks.encryption_key);
 
         // Produce decryption shares from 2 of 3 key shares.
         let dec_shares = make_decryption_shares(&encrypted.ciphertext, &ks.shares[..2]);
@@ -110,7 +110,7 @@ mod tests {
     fn test_decrypt_fails_with_insufficient_shares() {
         let intent = make_test_intent();
         let ks = ThresholdKeySet::generate(3, 5);
-        let encrypted = encrypt_intent(&intent, &ks.public_key);
+        let encrypted = encrypt_intent(&intent, &ks.encryption_key);
 
         let dec_shares = make_decryption_shares(&encrypted.ciphertext, &ks.shares[..2]);
 

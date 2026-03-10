@@ -32,7 +32,7 @@ async fn get_history(
     Path(address): Path<String>,
 ) -> Json<HistoryResponse> {
     let trades = {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db.lock().await;
         match db::list_intents_by_sender(&conn, &address, Some("settled")) {
             Ok(intents) => intents
                 .into_iter()
