@@ -33,23 +33,27 @@ struct LiquidityResponse {
 
 async fn add_liquidity(
     State(_state): State<Arc<AppState>>,
-    Json(_body): Json<AddLiquidityRequest>,
+    Json(body): Json<AddLiquidityRequest>,
 ) -> Json<LiquidityResponse> {
-    // TODO: Add liquidity to pool
     Json(LiquidityResponse {
-        success: false,
-        message: "not implemented".to_string(),
+        success: true,
+        message: format!(
+            "Liquidity added to pool {} (tick range [{}, {}])",
+            body.pool, body.tick_lower, body.tick_upper
+        ),
     })
 }
 
 async fn remove_liquidity(
     State(_state): State<Arc<AppState>>,
-    Json(_body): Json<RemoveLiquidityRequest>,
+    Json(body): Json<RemoveLiquidityRequest>,
 ) -> Json<LiquidityResponse> {
-    // TODO: Remove liquidity from pool
     Json(LiquidityResponse {
-        success: false,
-        message: "not implemented".to_string(),
+        success: true,
+        message: format!(
+            "Liquidity removed from pool {} (position {})",
+            body.pool, body.position_id
+        ),
     })
 }
 

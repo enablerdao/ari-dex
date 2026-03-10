@@ -38,5 +38,5 @@ async fn get_history(
 }
 
 pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/v1/history/{address}", get(get_history))
+    Router::new().route("/v1/history/:address", get(get_history))
 }

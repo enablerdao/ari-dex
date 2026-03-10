@@ -28,7 +28,8 @@ async fn main() {
 
     // Bind and serve.
     let addr = "0.0.0.0:3000";
-    info!("Listening on {}", addr);
+    info!("Listening on http://{}", addr);
+    info!("API docs: http://127.0.0.1:3000/health");
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
