@@ -1,7 +1,7 @@
 import { ChainId } from "./types";
 
 /** Base URL for the ARI gateway API. */
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 /** Supported chains and their RPC endpoints. */
 export const SUPPORTED_CHAINS = [

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 use ari_engine::state::EngineState;
 
@@ -46,6 +47,10 @@ pub fn build_router(engine: EngineState) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Serve frontend static files from ./frontend/dist (fallback)
+    let serve_dir = ServeDir::new("frontend/dist")
+        .append_index_html_on_directories(true);
+
     Router::new()
         .merge(routes::health::router())
         .merge(routes::intents::router())
@@ -54,6 +59,7 @@ pub fn build_router(engine: EngineState) -> Router {
         .merge(routes::tokens::router())
         .merge(routes::liquidity::router())
         .merge(routes::history::router())
+        .fallback_service(serve_dir)
         .layer(cors)
         .with_state(state)
 }

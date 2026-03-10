@@ -1,43 +1,40 @@
 import { useMutation } from "@tanstack/react-query";
-import { API_URL, INTENT_EXPIRY_SECONDS } from "../config";
-import type { Token, Intent } from "../types";
+import { API_URL } from "../config";
+import type { Token } from "../types";
 
 interface SubmitIntentParams {
   sellToken: Token;
   buyToken: Token;
   sellAmount: string;
   minBuyAmount: string;
+  sender?: string;
 }
 
 interface SubmitIntentResult {
-  intentId: string;
+  intent_id: string;
   status: string;
 }
 
 /**
  * Submits a trade intent via POST /v1/intents.
- *
- * In production this would sign the intent with the user's wallet
- * before submitting. Currently sends an unsigned placeholder payload.
+ * Matches the Rust API's expected JSON body shape.
  */
 export function useSubmitIntent() {
   const mutation = useMutation<SubmitIntentResult, Error, SubmitIntentParams>({
     mutationFn: async (params) => {
-      const deadline = Math.floor(Date.now() / 1000) + INTENT_EXPIRY_SECONDS;
+      const rawSellAmount = BigInt(
+        Math.floor(
+          parseFloat(params.sellAmount || "0") *
+            10 ** params.sellToken.decimals,
+        ),
+      ).toString();
 
-      // TODO: Sign intent with wallet (EIP-712 typed data)
-      const payload: Partial<Intent> = {
-        sender: "0x0000000000000000000000000000000000000000",
-        sellToken: params.sellToken,
-        buyToken: params.buyToken,
-        sellAmount: params.sellAmount,
-        buyAmount: params.minBuyAmount,
-        minBuy: params.minBuyAmount,
-        deadline,
-        srcChain: params.sellToken.chain,
-        partialFill: false,
-        nonce: Date.now(),
-        signature: "0x" + "00".repeat(65),
+      const payload = {
+        sender: params.sender ?? "0x0000000000000000000000000000000000000000",
+        sell_token: params.sellToken.symbol,
+        buy_token: params.buyToken.symbol,
+        sell_amount: rawSellAmount,
+        min_buy_amount: params.minBuyAmount,
       };
 
       const res = await fetch(`${API_URL}/v1/intents`, {
