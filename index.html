@@ -643,27 +643,59 @@
     </p>
     <table style="max-width: 500px;">
       <tr><td style="color: var(--text);">Repository</td><td><a href="https://github.com/yukihamada/ari-dex" target="_blank" style="color: var(--primary-light); text-decoration: none;">github.com/yukihamada/ari-dex</a></td></tr>
-      <tr><td style="color: var(--text);">Phase</td><td>Phase 0 — Architecture Design</td></tr>
+      <tr><td style="color: var(--text);">Phase</td><td>Phase 0.5 — Prototype Working</td></tr>
       <tr><td style="color: var(--text);">Target</td><td>Testnet: 10ヶ月 / Mainnet: 20ヶ月 / Full Decentralization: 30ヶ月</td></tr>
-      <tr><td style="color: var(--text);">Infra</td><td>Fly.io (Tokyo nrt) / nginx</td></tr>
+      <tr><td style="color: var(--text);">Infra</td><td>Fly.io (Tokyo nrt) / Rust axum</td></tr>
       <tr><td style="color: var(--text);">Built with</td><td>Claude Code (Opus 4.6) + Multi-Agent</td></tr>
     </table>
 
-    <h4 style="margin-top: 24px; margin-bottom: 12px; font-size: 0.95rem;">Development Log</h4>
+    <!-- ===== COMPLETED ===== -->
+    <h4 style="margin-top: 24px; margin-bottom: 12px; font-size: 0.95rem; color: var(--accent);">Completed</h4>
     <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 2;">
-      <div><span style="color: var(--accent);">&#10003;</span> DEX仕様策定 — 11セクション（Vision / Architecture / Modules / Intent / MEV / Contracts / API / Security / Compare / Timeline / Budget）</div>
-      <div><span style="color: var(--accent);">&#10003;</span> 競合調査 — CoW Protocol, UniswapX, 1inch Fusion, Anoma, SUAVE, Across, Essential を分析</div>
-      <div><span style="color: var(--accent);">&#10003;</span> 名前決定 — 「ARI」（Arithmetic of Intents）</div>
-      <div><span style="color: var(--accent);">&#10003;</span> OGP / ブランディング設定</div>
-      <div><span style="color: var(--accent);">&#10003;</span> Fly.ioデプロイ（Tokyo region）</div>
-      <div><span style="color: var(--accent);">&#10003;</span> GitHubリポジトリ公開</div>
-      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates" target="_blank" style="color: var(--text-dim);">Rust workspace</a> — 6 crates, cargo check passing</div>
-      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates/ari-core/src" target="_blank" style="color: var(--text-dim);">ari-core</a> / <a href="https://github.com/yukihamada/ari-dex/tree/main/crates/ari-engine/src" target="_blank" style="color: var(--text-dim);">ari-engine</a> — 型定義 + マッチングエンジンstub</div>
-      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates/ari-gateway/src" target="_blank" style="color: var(--text-dim);">ari-gateway</a> — axum APIサーバー（全エンドポイント定義済み）</div>
-      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/contracts/src" target="_blank" style="color: var(--text-dim);">Smart Contracts</a> — Settlement.sol, Vault.sol, SolverRegistry.sol</div>
-      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/frontend/src" target="_blank" style="color: var(--text-dim);">Frontend</a> — React + Vite + wagmi scaffold</div>
-      <div><span style="color: var(--warning);">&#9675;</span> ビジネスロジック実装（CLMM数学、バッチオークション、ソルバー）</div>
-      <div><span style="color: var(--text-dim);">&#9675;</span> テストネットデプロイ</div>
+      <div><span style="color: var(--accent);">&#10003;</span> DEX仕様策定 — 13セクション、EN/JP 5ページ、OGP</div>
+      <div><span style="color: var(--accent);">&#10003;</span> 競合調査 — CoW Protocol, UniswapX, 1inch Fusion, Anoma, SUAVE, Across, Essential</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates" target="_blank" style="color: var(--text-dim);">Rust workspace (6 crates)</a> — cargo build --release passing</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates/ari-gateway/src/routes" target="_blank" style="color: var(--text-dim);">API Server</a> — 8 endpoints returning real JSON (health, tokens, pools, quote, intents, liquidity, history)</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/crates/ari-engine/src" target="_blank" style="color: var(--text-dim);">Matching Engine</a> — CLMM + OrderBook + BatchAuction + HybridRouter (struct/logic compiled)</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/contracts/src" target="_blank" style="color: var(--text-dim);">Smart Contracts</a> — Settlement.sol, Vault.sol (ERC-721 LP), VaultFactory.sol (EIP-1167), SolverRegistry.sol</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/contracts/test" target="_blank" style="color: var(--text-dim);">Contract Tests</a> — 32 Foundry tests all passing (Settlement 14 + SolverRegistry 18)</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/frontend/src" target="_blank" style="color: var(--text-dim);">Swap UI</a> — React + Vite + wagmi, connected to API, dark theme, demo mode</div>
+      <div><span style="color: var(--accent);">&#10003;</span> Frontend + API single-server — tower-http ServeDir, one port serves everything</div>
+      <div><span style="color: var(--accent);">&#10003;</span> <a href="https://github.com/yukihamada/ari-dex/tree/main/contracts/script" target="_blank" style="color: var(--text-dim);">Deploy Script</a> — Foundry script for any EVM chain</div>
+      <div><span style="color: var(--accent);">&#10003;</span> GitHub push — <a href="https://github.com/yukihamada/ari-dex" target="_blank" style="color: var(--text-dim);">yukihamada/ari-dex</a> + <a href="https://github.com/enablerdao/ari-dex" target="_blank" style="color: var(--text-dim);">enablerdao/ari-dex</a></div>
+    </div>
+
+    <!-- ===== TODO ===== -->
+    <h4 style="margin-top: 24px; margin-bottom: 12px; font-size: 0.95rem; color: var(--warning);">Remaining Tasks</h4>
+    <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 2;">
+
+      <div style="margin-top: 8px; color: var(--text); font-weight: 600;">Phase 1 — MVP (Testnet Demo)</div>
+      <div><span style="color: var(--warning);">&#9675;</span> Sepolia/Base Sepoliaにコントラクトデプロイ</div>
+      <div><span style="color: var(--warning);">&#9675;</span> API Serverを Fly.io にデプロイ（デモURL公開）</div>
+      <div><span style="color: var(--warning);">&#9675;</span> ウォレット署名フロー（MetaMask → EIP-712署名 → Intent送信 → Settlement実行）</div>
+      <div><span style="color: var(--warning);">&#9675;</span> リアル価格取得 — Uniswap V3 / Chainlinkオラクル連携（モック価格から切替）</div>
+      <div><span style="color: var(--warning);">&#9675;</span> Intent永続化 — SQLite（インメモリから移行、再起動でデータ消えない）</div>
+      <div><span style="color: var(--warning);">&#9675;</span> Vault.sol テスト追加（Concentrated Liquidity + ERC-721 LP NFT）</div>
+
+      <div style="margin-top: 12px; color: var(--text); font-weight: 600;">Phase 2 — Core Protocol</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> Solver Network — 外部ソルバーがインテントを取得・競争入札する仕組み</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> 暗号化メモプール — BLS閾値暗号によるMEV保護（型定義済み、暗号処理未実装）</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> バッチオークション実行 — 250msバッチのリアルタイムスケジューリング</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> CLMM数学実装 — sqrt price計算、tick bitmap、swap/mint/burn の実ロジック</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> ガスレス取引 — ERC-4337 Account Abstraction統合</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> WebSocket — リアルタイム価格フィード、オーダーブック更新</div>
+
+      <div style="margin-top: 12px; color: var(--text); font-weight: 600;">Phase 3 — Production</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> セキュリティ監査 — Solidityコントラクト（外部監査法人）</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> Ethereum / Arbitrum / Base メインネットデプロイ</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> クロスチェーン — ERC-7683でSolana等との接続</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> ZK-Rollup決済 — L1への証明提出</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> $ARI トークン発行 — Work Token + veARI ガバナンス</div>
+
+      <div style="margin-top: 12px; color: var(--text); font-weight: 600;">Infra / DevOps</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> CI/CD — GitHub Actions（Rust test + Foundry test + Frontend build）</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> モニタリング — Prometheus + Grafana（レイテンシ、TPS、エラー率）</div>
+      <div><span style="color: var(--text-dim);">&#9675;</span> ドキュメント — SDK / APIリファレンス / Solver開発ガイド</div>
     </div>
   </div>
 </div>
