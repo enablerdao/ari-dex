@@ -9,3 +9,7 @@ description = "Cryptographic primitives for the ARI DEX (threshold encryption, B
 [dependencies]
 ari-core = { path = "../ari-core" }
 serde.workspace = true
+serde_json.workspace = true
+aes-gcm.workspace = true
+rand.workspace = true
+sha2.workspace = true

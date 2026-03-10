@@ -1,6 +1,5 @@
 //! Application router setup.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::Router;
@@ -9,7 +8,9 @@ use tower_http::services::ServeDir;
 
 use ari_engine::state::EngineState;
 
+use crate::db;
 use crate::routes;
+use crate::ws;
 
 /// A stored intent record.
 #[derive(Clone, serde::Serialize)]
@@ -28,18 +29,23 @@ pub struct StoredIntent {
 pub struct AppState {
     /// The matching engine state.
     pub engine: std::sync::Mutex<EngineState>,
-    /// In-memory intent store.
-    pub intents: std::sync::Mutex<HashMap<String, StoredIntent>>,
-    /// Counter for generating intent IDs.
-    pub intent_counter: std::sync::atomic::AtomicU64,
+    /// SQLite database connection.
+    pub db: std::sync::Mutex<rusqlite::Connection>,
+    /// Broadcast channel for WebSocket events.
+    pub broadcast_tx: tokio::sync::broadcast::Sender<ws::BroadcastEvent>,
 }
 
 /// Builds the axum router with all routes and middleware.
 pub fn build_router(engine: EngineState) -> Router {
+    let conn = db::init_db("./ari-dex.db").expect("Failed to initialize SQLite database");
+
+    let broadcast_tx = ws::create_broadcast();
+    ws::spawn_price_ticker(broadcast_tx.clone());
+
     let state = Arc::new(AppState {
         engine: std::sync::Mutex::new(engine),
-        intents: std::sync::Mutex::new(HashMap::new()),
-        intent_counter: std::sync::atomic::AtomicU64::new(1),
+        db: std::sync::Mutex::new(conn),
+        broadcast_tx,
     });
 
     let cors = CorsLayer::new()
@@ -59,6 +65,14 @@ pub fn build_router(engine: EngineState) -> Router {
         .merge(routes::tokens::router())
         .merge(routes::liquidity::router())
         .merge(routes::history::router())
+        .merge(routes::social::router())
+        .merge(routes::solvers::router())
+        .merge(routes::rfq::router())
+        .merge(routes::referral::router())
+        .merge(routes::portfolio::router())
+        .merge(routes::yield_agg::router())
+        .merge(routes::positions::router())
+        .merge(ws::router())
         .fallback_service(serve_dir)
         .layer(cors)
         .with_state(state)

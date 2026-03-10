@@ -6,3 +6,4 @@
 pub mod auction;
 pub mod router;
 pub mod scoring;
+pub mod solver;

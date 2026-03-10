@@ -9,3 +9,4 @@ description = "Solver and routing engine for the ARI DEX"
 [dependencies]
 ari-core = { path = "../ari-core" }
 serde.workspace = true
+rand.workspace = true

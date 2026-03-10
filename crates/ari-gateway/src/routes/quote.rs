@@ -17,6 +17,13 @@ struct QuoteRequest {
 }
 
 #[derive(Serialize)]
+struct SplitRoute {
+    path: Vec<String>,
+    percentage: u32,
+    buy_amount: String,
+}
+
+#[derive(Serialize)]
 struct QuoteResponse {
     sell_token: String,
     buy_token: String,
@@ -25,6 +32,9 @@ struct QuoteResponse {
     price: String,
     price_impact: String,
     route: Vec<String>,
+    /// For large orders, the trade is split across multiple routes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    routes: Option<Vec<SplitRoute>>,
 }
 
 /// Mock price table: returns price of `token` in USDC.
@@ -84,6 +94,42 @@ async fn get_quote(
         }
     };
 
+    // Split routing for large orders (> $10k equivalent).
+    let usd_value = sell_amount_human * sell_price;
+    let split_routes = if usd_value > 10_000.0 && route.len() >= 2 {
+        let s = params.sell_token.to_uppercase();
+        let b = params.buy_token.to_uppercase();
+
+        // Primary route: 70% direct / via USDC
+        let primary_pct = 70u32;
+        let secondary_pct = 30u32;
+        let primary_amount = buy_amount_raw * (primary_pct as f64 / 100.0);
+        let secondary_amount = buy_amount_raw * (secondary_pct as f64 / 100.0);
+
+        let primary_path = route.clone();
+        // Secondary route goes through USDT as an alternative intermediary.
+        let secondary_path = if primary_path.contains(&"USDC".to_string()) {
+            vec![s, "USDT".to_string(), b]
+        } else {
+            vec![s, "USDT".to_string(), b]
+        };
+
+        Some(vec![
+            SplitRoute {
+                path: primary_path,
+                percentage: primary_pct,
+                buy_amount: format!("{:.0}", primary_amount),
+            },
+            SplitRoute {
+                path: secondary_path,
+                percentage: secondary_pct,
+                buy_amount: format!("{:.0}", secondary_amount),
+            },
+        ])
+    } else {
+        None
+    };
+
     Json(QuoteResponse {
         sell_token: params.sell_token,
         buy_token: params.buy_token,
@@ -92,6 +138,7 @@ async fn get_quote(
         price: format!("{:.6}", price),
         price_impact: format!("{:.4}", price_impact),
         route,
+        routes: split_routes,
     })
 }
 

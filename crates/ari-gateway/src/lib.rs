@@ -4,6 +4,7 @@
 //! with the ARI decentralized exchange.
 
 pub mod app;
+pub mod db;
 pub mod middleware;
 pub mod routes;
 pub mod ws;

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { useQuote } from "../hooks/useQuote";
 import { useSubmitIntent } from "../hooks/useSubmitIntent";
+import { useSignIntent } from "../hooks/useSignIntent";
 import type { Token } from "../types";
 import { ChainId } from "../types";
 
@@ -29,6 +30,7 @@ export function SwapPanel() {
   );
 
   const { submit, isPending: submitPending } = useSubmitIntent();
+  const { signIntent, isSigning } = useSignIntent();
 
   const handleSwapTokens = useCallback(() => {
     setSellToken(buyToken);
@@ -37,8 +39,26 @@ export function SwapPanel() {
     setSubmitted(null);
   }, [sellToken, buyToken]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!sellAmount || !quote) return;
+
+    let signature: string | undefined;
+
+    if (isConnected && address) {
+      try {
+        signature = await signIntent({
+          sender: address,
+          sellToken,
+          buyToken,
+          sellAmount,
+          minBuyAmount: quote.buy_amount,
+        });
+      } catch {
+        // User rejected signing or wallet error — abort
+        return;
+      }
+    }
+
     submit(
       {
         sellToken,
@@ -46,12 +66,13 @@ export function SwapPanel() {
         sellAmount,
         minBuyAmount: quote.buy_amount,
         sender: address,
+        signature,
       },
       {
         onSuccess: (data) => setSubmitted(data.intent_id),
       },
     );
-  }, [sellToken, buyToken, sellAmount, quote, submit, address]);
+  }, [sellToken, buyToken, sellAmount, quote, submit, address, isConnected, signIntent]);
 
   // Format buy amount from raw to human-readable
   const formatBuyAmount = () => {
@@ -65,11 +86,15 @@ export function SwapPanel() {
     ? "Enter Amount"
     : quoteLoading
       ? "Fetching Quote..."
-      : submitPending
-        ? "Submitting Intent..."
-        : `Swap${!isConnected ? " (Demo Mode)" : ""}`;
+      : isSigning
+        ? "Signing..."
+        : submitPending
+          ? "Submitting Intent..."
+          : isConnected
+            ? "Sign & Swap"
+            : "Swap (Demo Mode)";
 
-  const buttonDisabled = !sellAmount || quoteLoading || submitPending;
+  const buttonDisabled = !sellAmount || quoteLoading || submitPending || isSigning;
 
   return (
     <div className="swap-panel">

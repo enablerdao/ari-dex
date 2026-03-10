@@ -8,6 +8,7 @@ use axum::{Json, Router};
 use serde::Serialize;
 
 use crate::app::AppState;
+use crate::db;
 
 #[derive(Serialize)]
 struct TradeRecord {
@@ -27,14 +28,32 @@ struct HistoryResponse {
 }
 
 async fn get_history(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(address): Path<String>,
 ) -> Json<HistoryResponse> {
-    // TODO: Look up trade history for address
-    Json(HistoryResponse {
-        address,
-        trades: Vec::new(),
-    })
+    let trades = {
+        let conn = state.db.lock().unwrap();
+        match db::list_intents_by_sender(&conn, &address, Some("settled")) {
+            Ok(intents) => intents
+                .into_iter()
+                .map(|i| TradeRecord {
+                    intent_id: i.intent_id,
+                    sell_token: i.sell_token,
+                    buy_token: i.buy_token,
+                    sell_amount: i.sell_amount,
+                    buy_amount: i.min_buy_amount,
+                    timestamp: i.created_at,
+                    status: i.status,
+                })
+                .collect(),
+            Err(e) => {
+                tracing::error!("Failed to query history: {e}");
+                Vec::new()
+            }
+        }
+    };
+
+    Json(HistoryResponse { address, trades })
 }
 
 pub fn router() -> Router<Arc<AppState>> {

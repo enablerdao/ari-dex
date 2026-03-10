@@ -8,6 +8,8 @@ interface SubmitIntentParams {
   sellAmount: string;
   minBuyAmount: string;
   sender?: string;
+  /** EIP-712 signature hex. If omitted, a placeholder is used (demo mode). */
+  signature?: string;
 }
 
 interface SubmitIntentResult {
@@ -29,12 +31,16 @@ export function useSubmitIntent() {
         ),
       ).toString();
 
+      const placeholder =
+        "0x" + "0".repeat(130);
+
       const payload = {
         sender: params.sender ?? "0x0000000000000000000000000000000000000000",
         sell_token: params.sellToken.symbol,
         buy_token: params.buyToken.symbol,
         sell_amount: rawSellAmount,
         min_buy_amount: params.minBuyAmount,
+        signature: params.signature ?? placeholder,
       };
 
       const res = await fetch(`${API_URL}/v1/intents`, {
