@@ -1,0 +1,24 @@
+# Build stage
+FROM rust:1.83-slim AS builder
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+RUN cargo build --release --bin ari-node
+
+# Frontend build
+FROM node:20-slim AS frontend
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
+
+# Runtime
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/ari-node /usr/local/bin/ari-node
+COPY --from=frontend /app/dist /app/frontend/dist
+WORKDIR /app
+ENV RUST_LOG=info
+EXPOSE 3000
+CMD ["ari-node"]
