@@ -1,8 +1,12 @@
+import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { mainnet, arbitrum, base } from "wagmi/chains";
 import { Header } from "./components/Header";
 import { SwapPanel } from "./components/SwapPanel";
+import { PoolsPage } from "./components/PoolsPage";
+import { PortfolioPage } from "./components/PortfolioPage";
+import { SolversPage } from "./components/SolversPage";
 
 const queryClient = new QueryClient();
 
@@ -14,6 +18,33 @@ const wagmiConfig = createConfig({
     [base.id]: http(),
   },
 });
+
+type Page = "swap" | "pools" | "portfolio" | "solvers";
+
+function useHashRoute(): [Page, (p: Page) => void] {
+  const [page, setPage] = useState<Page>(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (["pools", "portfolio", "solvers"].includes(hash)) return hash as Page;
+    return "swap";
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (["pools", "portfolio", "solvers"].includes(hash)) setPage(hash as Page);
+      else setPage("swap");
+    };
+    window.addEventListener("hashchange", handler);
+    return () => window.removeEventListener("hashchange", handler);
+  }, []);
+
+  const navigate = (p: Page) => {
+    window.location.hash = p === "swap" ? "" : p;
+    setPage(p);
+  };
+
+  return [page, navigate];
+}
 
 function Stats() {
   return (
@@ -50,14 +81,23 @@ function Powered() {
 }
 
 export function App() {
+  const [page, navigate] = useHashRoute();
+
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <div className="app">
-          <Header />
+          <Header currentPage={page} onNavigate={navigate} />
           <main className="main">
-            <SwapPanel />
-            <Stats />
+            {page === "swap" && (
+              <>
+                <SwapPanel />
+                <Stats />
+              </>
+            )}
+            {page === "pools" && <PoolsPage />}
+            {page === "portfolio" && <PortfolioPage />}
+            {page === "solvers" && <SolversPage />}
             <Powered />
           </main>
         </div>

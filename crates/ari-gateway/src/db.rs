@@ -184,12 +184,12 @@ pub fn get_intent(conn: &Connection, id: &str) -> Result<Option<StoredIntent>> {
 }
 
 /// List all intents, ordered by creation time descending.
-pub fn list_intents(conn: &Connection) -> Result<Vec<StoredIntent>> {
+pub fn list_intents(conn: &Connection, limit: usize) -> Result<Vec<StoredIntent>> {
     let mut stmt = conn.prepare(
         "SELECT id, sender, sell_token, buy_token, sell_amount, min_buy_amount, status, created_at
-         FROM intents ORDER BY created_at DESC",
+         FROM intents ORDER BY created_at DESC LIMIT ?1",
     )?;
-    let rows = stmt.query_map([], row_to_intent)?;
+    let rows = stmt.query_map(params![limit as i64], row_to_intent)?;
     rows.collect()
 }
 

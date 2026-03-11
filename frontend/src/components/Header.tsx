@@ -1,7 +1,14 @@
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 
-export function Header() {
+type Page = "swap" | "pools" | "portfolio" | "solvers";
+
+interface HeaderProps {
+  currentPage: Page;
+  onNavigate: (page: Page) => void;
+}
+
+export function Header({ currentPage, onNavigate }: HeaderProps) {
   const { address, isConnected, chain } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
@@ -9,26 +16,34 @@ export function Header() {
   const formatAddress = (addr: string) =>
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
+  const navItems: { page: Page; label: string }[] = [
+    { page: "swap", label: "Swap" },
+    { page: "pools", label: "Pools" },
+    { page: "portfolio", label: "Portfolio" },
+    { page: "solvers", label: "Solvers" },
+  ];
+
   return (
     <header className="header">
       <div className="header-logo">
-        <span className="header-logo-text">ARI</span>
+        <span className="header-logo-text" onClick={() => onNavigate("swap")} style={{ cursor: "pointer" }}>ARI</span>
         <span className="header-logo-badge">Mainnet</span>
       </div>
 
       <nav className="header-nav">
-        <a className="header-nav-link header-nav-link--active" href="#">
-          Swap
-        </a>
-        <a className="header-nav-link" href="#">
-          Pools
-        </a>
-        <a className="header-nav-link" href="#">
-          Portfolio
-        </a>
-        <a className="header-nav-link" href="#">
-          Solvers
-        </a>
+        {navItems.map((item) => (
+          <a
+            key={item.page}
+            className={`header-nav-link ${currentPage === item.page ? "header-nav-link--active" : ""}`}
+            href={`#${item.page === "swap" ? "" : item.page}`}
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate(item.page);
+            }}
+          >
+            {item.label}
+          </a>
+        ))}
       </nav>
 
       <div className="header-right">

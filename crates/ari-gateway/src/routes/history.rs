@@ -56,6 +56,39 @@ async fn get_history(
     Json(HistoryResponse { address, trades })
 }
 
+async fn get_all_history(
+    State(state): State<Arc<AppState>>,
+) -> Json<HistoryResponse> {
+    let trades = {
+        let conn = state.db.lock().await;
+        match db::list_intents(&conn, 50) {
+            Ok(intents) => intents
+                .into_iter()
+                .map(|i| TradeRecord {
+                    intent_id: i.intent_id,
+                    sell_token: i.sell_token,
+                    buy_token: i.buy_token,
+                    sell_amount: i.sell_amount,
+                    buy_amount: i.min_buy_amount,
+                    timestamp: i.created_at,
+                    status: i.status,
+                })
+                .collect(),
+            Err(e) => {
+                tracing::error!("Failed to query history: {e}");
+                Vec::new()
+            }
+        }
+    };
+
+    Json(HistoryResponse {
+        address: "all".to_string(),
+        trades,
+    })
+}
+
 pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/v1/history/:address", get(get_history))
+    Router::new()
+        .route("/v1/history", get(get_all_history))
+        .route("/v1/history/:address", get(get_history))
 }
